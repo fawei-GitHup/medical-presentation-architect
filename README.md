@@ -1,28 +1,54 @@
 # medical-presentation-architect
 
-Medical PPT Suite · 1.0.0 · Kimi CLI 优先 · 中文文档
+Medical PPT Suite · 1.1.0 · Kimi CLI 优先 · 中文界面与文档
 
 可安装的医学演示规划 Skill 与工程工具：先访谈，后研究与叙事，选择恰当的内容和视觉形式，逐主张溯源，构建可编辑 PPTX，再回渲染、审核和导出。核心规则统一，Kimi / Claude Code / Codex 适配独立。
 
-**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.0.0`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
+**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.1.0`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
 
-## 安装
+## 一行安装
 
-Python 3.10+；安装 Skill 本身不安装模型或付费服务。下载 ZIP 解压后，Windows：
+需要 Python 3.10+。命令会下载 `v1.1.0` Release、核对 SHA-256、解压并安装到 Kimi 的本地 skills 目录。
+
+**Windows PowerShell：**
 
 ```powershell
-.\install.ps1 -Agent kimi -Target .\local-skills
-kimi --skills-dir .\local-skills
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.ps1 | iex
 ```
 
-macOS/Linux：
+**macOS / Linux 终端：**
 
 ```sh
-sh install.sh --agent kimi --target ./local-skills
-kimi --skills-dir ./local-skills
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.sh | sh
 ```
 
-在 Kimi 对话输入 `/skill:medical-presentation-architect` 加上主题。会先补齐访谈；已有信息不会重复问。完整命令和示例见 [Kimi 指南](docs/kimi-cli.md)。
+安装后，在 Kimi 输入：
+
+```text
+/skill:medical-presentation-architect 我要制作一份医学PPT，请先访谈，已知内容不要重复问。
+```
+
+## 打开本地中文界面
+
+界面只监听本机，表单和上传资料写入本地 `projects`，不会自动上传服务器。
+
+Windows：
+
+```powershell
+python "$env:USERPROFILE\.kimi-code\skills\medical-presentation-architect\scripts\ui_server.py"
+```
+
+macOS / Linux：
+
+```sh
+python3 "$HOME/.kimi-code/skills/medical-presentation-architect/scripts/ui_server.py"
+```
+
+浏览器会自动打开。填写访谈表单、添加本地资料、生成项目后，界面会给出可复制的 Kimi 启动命令。已有信息不会重复询问。
+
+## 其他安装方式
+
+克隆仓库安装：
 
 可克隆并一键安装：
 
@@ -32,21 +58,21 @@ cd medical-presentation-architect
 python scripts/install.py install --agent kimi
 ```
 
-也可下载固定版本 ZIP（先保存到本地，再安装）：
+手工下载固定版本 ZIP：
 
 ```sh
-curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.0.0.zip -o mpa.zip
+curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.0.zip -o mpa.zip
 unzip mpa.zip
-sh medical-presentation-architect-1.0.0/install.sh --agent kimi
+sh medical-presentation-architect-1.1.0/install.sh --agent kimi
 ```
 
 ```powershell
-Invoke-WebRequest 'https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.0.0.zip' -OutFile mpa.zip
+Invoke-WebRequest 'https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.0.zip' -OutFile mpa.zip
 Expand-Archive -LiteralPath mpa.zip -DestinationPath mpa-download
-& ./mpa-download/medical-presentation-architect-1.0.0/install.ps1 -Agent kimi
+& ./mpa-download/medical-presentation-architect-1.1.0/install.ps1 -Agent kimi
 ```
 
-私有仓库使用 `gh repo clone` 或已认证 Git，匿名下载不适用。
+要先查看脚本再执行，可下载 [bootstrap.ps1](bootstrap.ps1) 或 [bootstrap.sh](bootstrap.sh)，检查内容后在本机运行。Claude Code、Codex、自定义安装目录和卸载方式见 [完整安装说明](docs/usage.md)。
 
 |宿主|默认 skills 父目录|自定义|
 |---|---|---|

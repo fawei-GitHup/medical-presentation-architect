@@ -1,5 +1,21 @@
 # Kimi CLI
 
+## 一行安装
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.ps1 | iex
+```
+
+macOS / Linux：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.sh | sh
+```
+
+安装后启动 Kimi，并输入 `/skill:medical-presentation-architect` 加上你的主题。若希望先在界面中整理需求，运行安装目录下的 `scripts/ui_server.py`；浏览器表单会生成项目和可复制的 Kimi 启动命令。
+
 优先使用通用本地 skills 安装器，本仓库的 plugin/manifest.json 是自身元数据，不冒充 Kimi 官方插件 manifest。不依赖未经验证的 kimi plugin install。
 
 已核对 2026-09-14 官方 [Skills](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html) 和 [命令](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html)。本机 `kimi --version` 为 0.36.0；`kimi --help` 实测支持 `--skills-dir`、`-p`。文档描述用户目录为 `$KIMI_CODE_HOME/skills`（默认 `~/.kimi-code/skills`），也扫描 `~/.agents/skills`；旧版差异以本机 help 为准。

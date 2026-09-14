@@ -34,10 +34,15 @@ REQUIRED = [
     "scripts/package.py",
     "scripts/pptx_lint.py",
     "scripts/release_check.py",
+    "scripts/ui_server.py",
     "tests/test_workflow.py",
     "examples/demo/slide-plan.json",
     "install.sh",
     "install.ps1",
+    "bootstrap.sh",
+    "bootstrap.ps1",
+    "start-ui.sh",
+    "start-ui.ps1",
     "uninstall.sh",
     "uninstall.ps1",
     "plugin/manifest.json",
@@ -52,6 +57,10 @@ REQUIRED = [
     "docs/codex.md",
     "docs/validation.md",
     "docs/input-audit.md",
+    "ui/index.html",
+    "ui/styles.css",
+    "ui/app.js",
+    "ui/README.md",
 ]
 FORBIDDEN_SUFFIXES = {
     ".pptx",
@@ -140,6 +149,8 @@ def main():
             skill = target / "medical-presentation-architect"
             if not (skill / "SKILL.md").is_file():
                 errors.append("installer smoke test did not place SKILL.md")
+            if not (skill / "ui/index.html").is_file() or not (skill / "scripts/ui_server.py").is_file():
+                errors.append("installer smoke test did not place the local UI")
             subprocess.run(
                 [py, str(ROOT / "scripts/install.py"), "uninstall", "--agent", "generic", "--target", str(target)],
                 check=True,

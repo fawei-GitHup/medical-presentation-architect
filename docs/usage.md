@@ -2,6 +2,40 @@
 
 需要 Python 3.10+。安装器仅用标准库；PPTX 构建/结构 QA/渲染需先安装 `requirements.txt`（Windows 会安装 PowerPoint COM 所需的 pywin32）。可选安装 `requirements-dev.txt` 做 lint。渲染使用 LibreOffice，或 Windows 上已安装且可由 COM 调用的 PowerPoint。中文幻灯片需有合法可用的 CJK 字体。
 
+## 最快安装
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.ps1 | iex
+```
+
+macOS / Linux：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.sh | sh
+```
+
+脚本固定下载 `v1.1.0` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
+
+## 本地中文界面
+
+从仓库目录运行 `python scripts/ui_server.py`，或在 Windows 双击/运行 `./start-ui.ps1`，macOS/Linux 运行 `sh start-ui.sh`。默认地址为 `http://127.0.0.1:8765/`，并自动打开浏览器。
+
+界面完成结构化访谈、创建项目、保存本地资料并生成 Kimi 启动命令。服务默认拒绝非本机监听；上传限制为单文件 50 MB，只接受演示文稿、PDF、常见 Office 文件、图片和文本。病例及机构资料仍须先去标识化。停止终端进程即可关闭界面。
+
+自定义工作区：
+
+```powershell
+.\start-ui.ps1 -Workspace 'D:\Medical-PPT-Projects' -Port 8765
+```
+
+```sh
+sh start-ui.sh --workspace "$HOME/Medical-PPT-Projects" --port 8765
+```
+
+## 命令行工作流
+
 ```sh
 python -m venv .venv
 # macOS/Linux: source .venv/bin/activate

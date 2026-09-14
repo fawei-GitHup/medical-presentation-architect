@@ -10,7 +10,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "medical-presentation-architect"
-PAYLOAD = ["SKILL.md", "LICENSE", "prompts", "rules", "workflows", "schemas", "scripts", "references", "adapters"]
+PAYLOAD = [
+    "SKILL.md",
+    "LICENSE",
+    "prompts",
+    "rules",
+    "workflows",
+    "schemas",
+    "scripts",
+    "references",
+    "adapters",
+    "ui",
+]
 
 
 def digest(path):

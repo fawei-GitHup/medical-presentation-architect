@@ -13,6 +13,7 @@ from pptx import Presentation
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mpa  # noqa: E402
+import ui_server  # noqa: E402
 from pptx_lint import lint  # noqa: E402
 
 
@@ -39,6 +40,62 @@ class MpaTests(unittest.TestCase):
         self.assertIn("受众", text)
         self.assertNotIn("护士培训需求", text)
         self.assertTrue(any(x["id"] == "audience" for x in notice["questions"]))
+
+    def test_local_ui_rejects_path_traversal_and_unsupported_uploads(self):
+        for name in ("../case", "a/b", ".", "CON", "bad."):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                ui_server.safe_project_name(name)
+        self.assertEqual(ui_server.safe_project_name("dental-training_01"), "dental-training_01")
+        self.assertEqual(ui_server.safe_project_name("口腔科 培训"), "口腔科 培训")
+        self.assertEqual(ui_server.safe_upload_name("C:\\fakepath\\病例图.JPG"), "病例图.JPG")
+        with self.assertRaises(ValueError):
+            ui_server.safe_upload_name("payload.exe")
+
+    def test_local_ui_maps_intake_to_canonical_brief(self):
+        values = ui_server.normalize_fields(
+            {
+                "fields": {
+                    "topic": "口腔设备培训",
+                    "audience": "护士",
+                    "duration_minutes": "20",
+                    "slide_count": "18",
+                    "allow_public_web": False,
+                    "patient_materials": "不使用患者资料",
+                    "public_distribution": "仅院内",
+                    "learning_outcomes": "理解流程\n识别风险",
+                    "outputs": ["pptx", "pdf"],
+                }
+            }
+        )
+        self.assertEqual(values["duration"]["minutes"], 20)
+        self.assertEqual(values["slide_count_policy"], {"mode": "exact", "count": 18})
+        self.assertEqual(values["learning_outcomes"], ["理解流程", "识别风险"])
+        self.assertEqual(values["network_policy"], {"allow_public_web": False, "local_only": True})
+        self.assertEqual(values["deliverables"], ["pptx", "pdf"])
+
+    def test_local_ui_creates_schema_valid_brief(self):
+        project = self.tmp / "ui-project"
+        mpa.init_project(project, "clear", "设备培训", "设备培训")
+        brief = ui_server.apply_ui_fields(
+            project,
+            ui_server.normalize_fields(
+                {
+                    "fields": {
+                        "topic": "设备培训",
+                        "audience": "口腔科护士",
+                        "purpose": "院内业务学习",
+                        "learning_outcomes": "理解工作流",
+                        "allow_public_web": True,
+                        "patient_materials": "不使用病例",
+                        "public_distribution": "仅院内",
+                        "outputs": ["pptx"],
+                    }
+                }
+            ),
+        )
+        self.assertEqual(mpa.schema_validate("design-brief", brief), [])
+        self.assertEqual(brief["fields"]["audience"]["status"], "provided")
+        self.assertIn("--skills-dir", ui_server.kimi_command(project))
 
     def test_02_known_fields_are_not_reasked(self):
         b = mpa.read_json(self.project / "intake/design_brief.json")

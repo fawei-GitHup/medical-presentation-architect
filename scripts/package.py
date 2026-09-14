@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_FILES = ["SKILL.md", "prompts", "rules", "workflows", "schemas", "scripts", "references", "LICENSE"]
+SKILL_FILES = ["SKILL.md", "prompts", "rules", "workflows", "schemas", "scripts", "references", "ui", "LICENSE"]
 
 
 def sha(p):
