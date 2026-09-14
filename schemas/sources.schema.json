@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:sources",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "type": {
+        "enum": [
+          "guideline",
+          "systematic_review",
+          "trial",
+          "observational",
+          "manufacturer",
+          "local_document",
+          "experience",
+          "synthetic"
+        ]
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1
+      },
+      "authors": {
+        "type": "string",
+        "minLength": 1
+      },
+      "year": {
+        "type": "integer",
+        "minimum": 1900,
+        "maximum": 2200
+      },
+      "url": {
+        "type": "string"
+      },
+      "doi": {
+        "type": "string"
+      },
+      "pmid": {
+        "type": "string"
+      },
+      "retrieved_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "verified",
+          "unavailable"
+        ]
+      },
+      "verification_method": {
+        "type": "string",
+        "minLength": 1
+      },
+      "retraction_status": {
+        "enum": [
+          "clear",
+          "retracted",
+          "unknown",
+          "not_applicable"
+        ]
+      },
+      "local_path": {
+        "type": "string"
+      },
+      "sha256": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "type",
+      "title",
+      "status",
+      "retraction_status"
+    ]
+  },
+  "minItems": 0
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:render",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pptx_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "engine": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pdf": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pdf_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "pptx_sha256",
+    "engine",
+    "pdf",
+    "pdf_sha256",
+    "pages"
+  ]
+}

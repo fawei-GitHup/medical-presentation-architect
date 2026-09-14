@@ -1,0 +1,93 @@
+{
+  "brief_id": "a2e9c114a003",
+  "brief_version": 1,
+  "brief_hash": "4afb08497195890d4330f347a8c648b2be36cb18611730ce8268778ec083f371",
+  "notice_kind": "initial",
+  "route": "clear",
+  "understanding": "演示文稿策划与质检流程示例（纯合成内容）",
+  "approach": "Proceed within the stated scope",
+  "reused_facts": [
+    {
+      "field": "topic",
+      "value": "演示文稿策划与质检流程示例（纯合成内容）",
+      "origin": {
+        "type": "file",
+        "locator": "合成示例项目说明"
+      }
+    },
+    {
+      "field": "audience",
+      "value": "演示文稿策划团队成员；非临床人员、非患者受众",
+      "origin": {
+        "type": "file",
+        "locator": "合成示例项目说明"
+      }
+    },
+    {
+      "field": "purpose",
+      "value": "仅演示本技能支持的可编辑图形结构，不提供医学知识或临床建议",
+      "origin": {
+        "type": "file",
+        "locator": "合成示例项目说明"
+      }
+    },
+    {
+      "field": "duration",
+      "value": {
+        "minutes": 8,
+        "interaction_minutes": 1
+      },
+      "origin": {
+        "type": "file",
+        "locator": "合成示例项目说明"
+      }
+    },
+    {
+      "field": "language",
+      "value": "中文；流程与说明用中文；保留技术缩写和专有名词原文",
+      "origin": {
+        "type": "file",
+        "locator": "合成示例项目说明"
+      }
+    },
+    {
+      "field": "existing_materials",
+      "value": [],
+      "origin": {
+        "type": "file",
+        "locator": "合成示例项目说明"
+      }
+    }
+  ],
+  "questions": [],
+  "assumptions": [
+    {
+      "field": "slide_count_policy",
+      "value": {
+        "mode": "exact",
+        "count": 6
+      },
+      "reason": "合成示例项目说明"
+    },
+    {
+      "field": "template_brand",
+      "value": "浅色背景、深色文字和青绿色强调；微软雅黑",
+      "reason": "合成示例项目说明"
+    }
+  ],
+  "unresolved_items": [],
+  "scope": {
+    "included": "展示六种可编辑的内容表达形式；不含医学教学",
+    "preserve": [
+      "清晰标明所有虚构数据",
+      "不含患者材料、品牌或真实医学主张"
+    ],
+    "allowed_changes": "可为可读性调整版式和措辞"
+  },
+  "next_action": "Continue with the authorized workflow.",
+  "requires_response": false,
+  "response_reason": "No blocking intake answer is missing.",
+  "delivery_status": "prepared",
+  "delivery_channel": null,
+  "message_id": null
+}

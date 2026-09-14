@@ -1,0 +1,50 @@
+[
+  {
+    "id": "DEMO_1",
+    "text": "合成示例内容：策划流程一览",
+    "kind": "synthetic",
+    "source_ids": [],
+    "status": "synthetic",
+    "scope": "仅供软件结构演示，不代表现实流程或医学事实"
+  },
+  {
+    "id": "DEMO_2",
+    "text": "合成示例内容：访谈后分流",
+    "kind": "synthetic",
+    "source_ids": [],
+    "status": "synthetic",
+    "scope": "仅供软件结构演示，不代表现实流程或医学事实"
+  },
+  {
+    "id": "DEMO_3",
+    "text": "合成示例内容：审阅节奏",
+    "kind": "synthetic",
+    "source_ids": [],
+    "status": "synthetic",
+    "scope": "仅供软件结构演示，不代表现实流程或医学事实"
+  },
+  {
+    "id": "DEMO_4",
+    "text": "合成示例内容：阶段检查表",
+    "kind": "synthetic",
+    "source_ids": [],
+    "status": "synthetic",
+    "scope": "仅供软件结构演示，不代表现实流程或医学事实"
+  },
+  {
+    "id": "DEMO_5",
+    "text": "合成示例内容：各阶段示例任务量",
+    "kind": "synthetic",
+    "source_ids": [],
+    "status": "synthetic",
+    "scope": "仅供软件结构演示，不代表现实流程或医学事实"
+  },
+  {
+    "id": "DEMO_6",
+    "text": "合成示例内容：交付前核对",
+    "kind": "synthetic",
+    "source_ids": [],
+    "status": "synthetic",
+    "scope": "仅供软件结构演示，不代表现实流程或医学事实"
+  }
+]

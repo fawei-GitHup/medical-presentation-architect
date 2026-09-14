@@ -1,0 +1,13 @@
+{
+  "format": "mpa-local-suite-v1",
+  "official_kimi_plugin": false,
+  "name": "medical-presentation-architect",
+  "version": "1.0.0",
+  "entrypoint": "SKILL.md",
+  "adapters": [
+    "kimi-cli",
+    "claude-code",
+    "codex"
+  ],
+  "python": ">=3.10"
+}

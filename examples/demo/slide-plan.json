@@ -1,0 +1,85 @@
+{
+  "width": 13.333,
+  "height": 7.5,
+  "font": "Microsoft YaHei",
+  "slides": [
+    {
+      "id": "S01",
+      "title": "策划流程一览",
+      "objective": "介绍示例目的",
+      "content_type": "cover",
+      "takeaway": "纯合成示例，不含医学内容",
+      "layout": "极简封面",
+      "duration_seconds": 65,
+      "claim_ids": [
+        "DEMO_1"
+      ],
+      "notes": "用中文说明本文件仅展示结构与功能。"
+    },
+    {
+      "id": "S02",
+      "title": "访谈后分流",
+      "objective": "展示需求和材料如何影响结构",
+      "content_type": "process",
+      "takeaway": "纯合成示例，不含医学内容",
+      "layout": "横向流程",
+      "duration_seconds": 65,
+      "claim_ids": [
+        "DEMO_2"
+      ],
+      "notes": "引导观众按顺序查看三个策划环节。"
+    },
+    {
+      "id": "S03",
+      "title": "审阅节奏",
+      "objective": "展示草拟、审阅与交付节点",
+      "content_type": "timeline",
+      "takeaway": "纯合成示例，不含医学内容",
+      "layout": "阶段时间线",
+      "duration_seconds": 65,
+      "claim_ids": [
+        "DEMO_3"
+      ],
+      "notes": "说明这是一条虚构的策划时间线，不代表绩效数据。"
+    },
+    {
+      "id": "S04",
+      "title": "阶段检查表",
+      "objective": "对照不同阶段的工作重点",
+      "content_type": "comparison",
+      "takeaway": "纯合成示例，不含医学内容",
+      "layout": "对照表",
+      "duration_seconds": 65,
+      "claim_ids": [
+        "DEMO_4"
+      ],
+      "notes": "指出表中任务是演示用的虚构示例。"
+    },
+    {
+      "id": "S05",
+      "title": "各阶段示例任务量",
+      "objective": "展示合成数据图表",
+      "content_type": "data",
+      "takeaway": "纯合成示例，不含医学内容",
+      "layout": "单系列柱状图",
+      "duration_seconds": 65,
+      "claim_ids": [
+        "DEMO_5"
+      ],
+      "notes": "强调柱状图 2、5、4 是人为虚构值，不得用于现实决策。"
+    },
+    {
+      "id": "S06",
+      "title": "交付前核对",
+      "objective": "回顾示例交付事项",
+      "content_type": "checklist",
+      "takeaway": "纯合成示例，不含医学内容",
+      "layout": "简短核对清单",
+      "duration_seconds": 65,
+      "claim_ids": [
+        "DEMO_6"
+      ],
+      "notes": "以三项核对事项结束示例演示。"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "dimension": "流程",
+    "idea": "访谈与策划流程",
+    "objective": "展示流程图结构",
+    "selected": true,
+    "reason": "作为多种可编辑表达方式之一"
+  },
+  {
+    "dimension": "时间线",
+    "idea": "策划阶段时间线",
+    "objective": "展示阶段节点",
+    "selected": true,
+    "reason": "与流程图的表达功能不同"
+  },
+  {
+    "dimension": "对照",
+    "idea": "阶段任务对照表",
+    "objective": "比较虚构任务",
+    "selected": true,
+    "reason": "展示可编辑表格"
+  },
+  {
+    "dimension": "图表",
+    "idea": "合成任务量图表",
+    "objective": "展示数据图表排版",
+    "selected": true,
+    "reason": "所有计数均为虚构值"
+  },
+  {
+    "dimension": "核对",
+    "idea": "交付核对清单",
+    "objective": "回顾步骤",
+    "selected": true,
+    "reason": "展示简短清单形式"
+  }
+]

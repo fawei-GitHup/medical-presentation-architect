@@ -1,0 +1,19 @@
+{
+  "name": "medical-presentation-architect",
+  "version": "1.0.0",
+  "description": "Intake-first medical presentation planning, evidence provenance and PPTX QA",
+  "author": {
+    "name": "medical-presentation-architect contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Medical Presentation Architect",
+    "shortDescription": "Plan and verify medical presentations.",
+    "longDescription": "Structured intake, evidence ledgers, visual plans, editable PPTX and review gates.",
+    "developerName": "medical-presentation-architect contributors",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Use medical-presentation-architect to plan a medical presentation; begin with missing intake questions."
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:visual-plan",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "slide_id": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "elements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "type": {
+              "enum": [
+                "text",
+                "image",
+                "table",
+                "chart",
+                "flow",
+                "timeline",
+                "decision",
+                "number",
+                "checklist"
+              ]
+            },
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 13.333
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 7.5
+            },
+            "w": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "h": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "z": {
+              "type": "integer"
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "claim_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "font_size": {
+              "type": "number",
+              "minimum": 8
+            },
+            "asset_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "minItems": 1
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "x",
+                  "y"
+                ]
+              },
+              "minItems": 1
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "label"
+                ]
+              },
+              "minItems": 0
+            },
+            "intentional_overlap": {
+              "type": "boolean"
+            },
+            "repeat_reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "series_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "x",
+            "y",
+            "w",
+            "h",
+            "z",
+            "purpose",
+            "alt",
+            "claim_ids"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "text"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "text"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "number"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "text"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "checklist"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "text"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "image"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "asset_id"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "table"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "rows"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "chart"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "categories",
+                  "values"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "flow"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "nodes",
+                  "edges"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "timeline"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "nodes",
+                  "edges"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "decision"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "nodes",
+                  "edges"
+                ]
+              }
+            }
+          ]
+        },
+        "minItems": 0
+      }
+    },
+    "required": [
+      "slide_id",
+      "elements"
+    ]
+  },
+  "minItems": 1
+}

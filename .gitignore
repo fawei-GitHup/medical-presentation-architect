@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+projects/
+private/
+build/
+render/
+final/
+*.zip
+.review-cache/
+review.json
+qa_report.*
+MANIFEST.sha256.json

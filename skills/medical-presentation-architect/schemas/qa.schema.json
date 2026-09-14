@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:qa",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "passed": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": ["draft", "needs_evidence", "needs_visual_review", "needs_clinical_review", "needs_privacy_review", "release_ready"]
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "minItems": 0
+    },
+    "slide_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "passed",
+    "status",
+    "fingerprint",
+    "errors",
+    "warnings",
+    "slide_count",
+    "generated_at"
+  ]
+}

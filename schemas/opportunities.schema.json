@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:opportunities",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "dimension": {
+        "type": "string",
+        "minLength": 1
+      },
+      "idea": {
+        "type": "string",
+        "minLength": 1
+      },
+      "objective": {
+        "type": "string",
+        "minLength": 1
+      },
+      "selected": {
+        "type": "boolean"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "dimension",
+      "idea",
+      "objective",
+      "selected",
+      "reason"
+    ]
+  },
+  "minItems": 1
+}

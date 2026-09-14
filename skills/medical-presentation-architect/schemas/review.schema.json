@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:review",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "pending",
+        "designer",
+        "clinical_expert"
+      ]
+    },
+    "reviewed_at": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "approved"
+      ]
+    },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "slide_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "visual": {
+                "type": "boolean"
+              },
+              "medical": {
+                "type": "boolean"
+              },
+              "citations": {
+                "type": "boolean"
+              },
+              "privacy": {
+                "type": "boolean"
+              },
+              "notes": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "visual",
+              "medical",
+              "citations",
+              "privacy",
+              "notes"
+            ]
+          },
+          "findings": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "slide_id",
+          "checks",
+          "findings"
+        ]
+      },
+      "minItems": 0
+    },
+    "warning_resolutions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "fingerprint",
+    "reviewer",
+    "role",
+    "reviewed_at",
+    "status",
+    "slides",
+    "warning_resolutions"
+  ]
+}

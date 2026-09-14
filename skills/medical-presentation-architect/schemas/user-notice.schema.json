@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:user-notice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["brief_id", "brief_version", "brief_hash", "notice_kind", "route", "understanding", "approach", "reused_facts", "questions", "assumptions", "unresolved_items", "scope", "next_action", "requires_response", "response_reason", "delivery_status", "delivery_channel", "message_id"],
+  "properties": {
+    "brief_id": {"type": "string", "pattern": "^[a-f0-9]{12}$"},
+    "brief_version": {"type": "integer", "minimum": 1},
+    "brief_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "notice_kind": {"enum": ["initial", "ready_to_proceed", "scope_change", "delivery"]},
+    "route": {"enum": ["clear", "fuzzy", "focused_edit"]},
+    "understanding": {"type": "string"},
+    "approach": {"type": "string"},
+    "reused_facts": {"type": "array", "items": {"type": "object", "required": ["field", "value", "origin"], "properties": {"field": {"type": "string"}, "value": {}, "origin": {"type": "object"}}}},
+    "questions": {"type": "array", "items": {"type": "object", "required": ["id", "question", "blocking_scope", "affected_claims"], "properties": {"id": {"type": "string"}, "question": {"type": "string"}, "blocking_scope": {"type": "array", "items": {"type": "string"}}, "affected_claims": {"type": "array", "items": {"type": "string"}}}}},
+    "assumptions": {"type": "array", "items": {"type": "object"}},
+    "unresolved_items": {"type": "array", "items": {"type": "object"}},
+    "scope": {"type": "object", "required": ["included", "preserve", "allowed_changes"], "properties": {"included": {}, "preserve": {}, "allowed_changes": {}}},
+    "next_action": {"type": "string"},
+    "requires_response": {"type": "boolean"},
+    "response_reason": {"type": "string"},
+    "delivery_status": {"enum": ["prepared", "sent"]},
+    "delivery_channel": {"type": ["string", "null"]},
+    "message_id": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"delivery_status": {"const": "sent"}}, "required": ["delivery_status"]},
+      "then": {"properties": {"delivery_channel": {"type": "string", "minLength": 1}}}
+    }
+  ]
+}

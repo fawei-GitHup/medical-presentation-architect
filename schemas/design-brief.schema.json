@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:design-brief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["brief_id", "version", "route", "status", "fields", "unresolved_items", "history"],
+  "properties": {
+    "brief_id": {"type": "string", "pattern": "^[a-f0-9]{12}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "route": {"enum": ["clear", "fuzzy", "focused_edit"]},
+    "status": {"enum": ["intake", "planning", "building", "review", "release_ready", "discussion_only"]},
+    "previous_version_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "brief_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "fields": {
+      "type": "object",
+      "minProperties": 24,
+      "additionalProperties": false,
+      "required": ["topic", "audience", "baseline_knowledge", "learning_outcomes", "purpose", "delivery_context", "duration", "slide_count_policy", "language", "institution_context", "scope", "preserve_items", "allowed_changes", "template_brand", "source_policy", "network_policy", "assets_available", "privacy_constraints", "evidence_requirements", "notes_profile", "deliverables", "acceptance_criteria", "assumptions", "existing_materials"],
+      "properties": {
+        "topic": {"$ref": "#/$defs/field"},
+        "audience": {"$ref": "#/$defs/field"},
+        "baseline_knowledge": {"$ref": "#/$defs/field"},
+        "learning_outcomes": {"$ref": "#/$defs/field"},
+        "purpose": {"$ref": "#/$defs/field"},
+        "delivery_context": {"$ref": "#/$defs/field"},
+        "duration": {"$ref": "#/$defs/field"},
+        "slide_count_policy": {"$ref": "#/$defs/field"},
+        "language": {"$ref": "#/$defs/field"},
+        "institution_context": {"$ref": "#/$defs/field"},
+        "scope": {"$ref": "#/$defs/field"},
+        "preserve_items": {"$ref": "#/$defs/field"},
+        "allowed_changes": {"$ref": "#/$defs/field"},
+        "template_brand": {"$ref": "#/$defs/field"},
+        "source_policy": {"$ref": "#/$defs/field"},
+        "network_policy": {"$ref": "#/$defs/field"},
+        "assets_available": {"$ref": "#/$defs/field"},
+        "privacy_constraints": {"$ref": "#/$defs/field"},
+        "evidence_requirements": {"$ref": "#/$defs/field"},
+        "notes_profile": {"$ref": "#/$defs/field"},
+        "deliverables": {"$ref": "#/$defs/field"},
+        "acceptance_criteria": {"$ref": "#/$defs/field"},
+        "assumptions": {"$ref": "#/$defs/field"},
+        "existing_materials": {"$ref": "#/$defs/field"}
+      }
+    },
+    "unresolved_items": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "question", "blocking_scope", "affected_claims"], "properties": {"id": {"type": "string"}, "question": {"type": "string", "minLength": 1}, "blocking_scope": {"type": "array", "items": {"type": "string"}}, "affected_claims": {"type": "array", "items": {"type": "string"}}}}},
+    "history": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["version", "hash", "path"], "properties": {"version": {"type": "integer", "minimum": 1}, "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "path": {"type": "string"}}}}
+  },
+  "$defs": {
+    "field": {"type": "object", "additionalProperties": false, "required": ["value", "status", "origin", "confidence", "blocking_scope"], "properties": {"value": {}, "status": {"enum": ["provided", "observed", "confirmed", "inferred", "defaulted", "unknown"]}, "origin": {"type": "object", "additionalProperties": false, "required": ["type", "locator"], "properties": {"type": {"enum": ["user_message", "file", "existing_brief", "assistant_inference", "safe_default"]}, "locator": {"type": "string"}}}, "confidence": {"type": "number", "minimum": 0, "maximum": 1}, "blocking_scope": {"type": "array", "items": {"type": "string"}}}}
+  }
+}

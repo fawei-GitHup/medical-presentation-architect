@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:claims",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "text": {
+        "type": "string",
+        "minLength": 1
+      },
+      "kind": {
+        "enum": [
+          "clinical",
+          "numeric",
+          "guideline",
+          "device",
+          "local_sop",
+          "experience",
+          "synthetic"
+        ]
+      },
+      "source_ids": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+        },
+        "minItems": 0,
+        "uniqueItems": true
+      },
+      "locator": {
+        "type": "string",
+        "minLength": 1
+      },
+      "support_excerpt": {
+        "type": "string",
+        "minLength": 1
+      },
+      "scope": {
+        "type": "string",
+        "minLength": 1
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "verified",
+          "synthetic"
+        ]
+      },
+      "reviewer": {
+        "type": "string"
+      },
+      "reviewed_at": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "text",
+      "kind",
+      "source_ids",
+      "status"
+    ]
+  },
+  "minItems": 0
+}

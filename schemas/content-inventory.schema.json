@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:content-inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "visual_review",
+    "files",
+    "slides",
+    "notes"
+  ],
+  "properties": {
+    "visual_review": {
+      "enum": [
+        "not_started",
+        "complete",
+        "not_available"
+      ]
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "kind",
+          "observed"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slide_id",
+          "page",
+          "tags",
+          "visible_summary",
+          "sources",
+          "notes_status",
+          "observations"
+        ],
+        "properties": {
+          "slide_id": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "visible_summary": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes_status": {
+            "enum": [
+              "present",
+              "missing",
+              "identical_to_other_pages",
+              "not_checked"
+            ]
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

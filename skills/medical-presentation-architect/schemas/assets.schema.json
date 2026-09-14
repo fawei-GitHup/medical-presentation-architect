@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:assets",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "origin": {
+        "type": "string",
+        "minLength": 1
+      },
+      "creator": {
+        "type": "string",
+        "minLength": 1
+      },
+      "license": {
+        "type": "string",
+        "minLength": 1
+      },
+      "license_status": {
+        "enum": [
+          "pending",
+          "verified"
+        ]
+      },
+      "verified_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "clinical": {
+        "type": "boolean"
+      },
+      "privacy_status": {
+        "enum": [
+          "pending",
+          "cleared",
+          "not_applicable"
+        ]
+      },
+      "consent_status": {
+        "enum": [
+          "pending",
+          "granted",
+          "not_applicable"
+        ]
+      },
+      "modifications": {
+        "type": "string",
+        "minLength": 1
+      },
+      "alt": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "id",
+      "path",
+      "sha256",
+      "origin",
+      "license_status",
+      "clinical",
+      "privacy_status",
+      "consent_status"
+    ]
+  },
+  "minItems": 0
+}

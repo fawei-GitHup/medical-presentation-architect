@@ -1,0 +1,5 @@
+python-pptx==1.0.2
+jsonschema==4.26.0
+Pillow==12.3.0
+PyMuPDF==1.28.2
+pywin32==312; sys_platform == "win32"

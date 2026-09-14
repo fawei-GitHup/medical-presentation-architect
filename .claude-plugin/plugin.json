@@ -1,0 +1,6 @@
+{
+  "name": "medical-presentation-architect",
+  "version": "1.0.0",
+  "description": "Intake-first medical presentation planning, evidence provenance and PPTX QA",
+  "license": "MIT"
+}

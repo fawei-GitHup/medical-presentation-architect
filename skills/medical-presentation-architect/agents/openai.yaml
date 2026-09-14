@@ -1,0 +1,4 @@
+interface:
+  display_name: "Medical Presentation Architect"
+  short_description: "Plan, source and review medical presentations"
+  default_prompt: "Plan a medical presentation. Begin by identifying missing intake information."
