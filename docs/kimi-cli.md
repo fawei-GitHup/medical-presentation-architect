@@ -5,13 +5,13 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.sh | sh
 ```
 
 安装后启动 Kimi，并输入 `/skill:medical-presentation-architect` 加上你的主题。若希望先在界面中整理需求，运行安装目录下的 `scripts/ui_server.py`；浏览器表单会生成项目和可复制的 Kimi 启动命令。
@@ -44,3 +44,5 @@ kimi --skills-dir ./local-skills -p '使用 medical-presentation-architect，继
 ```
 
 默认不启用 --auto/--yolo，保留宿主本身的权限机制；技能规则不修改模型选择。没有联网工具或视觉工具时分别停在证据或审图门禁。CLI 在本地运行仍可能将提示词送到云端；仅使用机构允许入模的材料。
+
+Windows 渲染无需 `comtypes`。运行 `python scripts/mpa.py doctor` 后直接使用 `python scripts/mpa.py render PROJECT --engine auto`；检测到 PowerPoint COM 时会自动选择 `powerpoint`，否则才寻找 LibreOffice。不要让 Kimi 用 grep/sed 临时解析 `mpa.py`，这在 Windows shell 中容易产生与项目无关的红色错误。

@@ -1,25 +1,25 @@
 # medical-presentation-architect
 
-Medical PPT Suite · 1.1.1 · Kimi CLI 优先 · 中文界面与文档
+Medical PPT Suite · 1.1.2 · Kimi CLI 优先 · 中文界面与文档
 
 可安装的医学演示规划 Skill 与工程工具：先访谈，后研究与叙事，选择恰当的内容和视觉形式，逐主张溯源，构建可编辑 PPTX，再回渲染、审核和导出。核心规则统一，Kimi / Claude Code / Codex 适配独立。
 
-**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.1.1`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
+**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.1.2`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
 
 ## 一行安装
 
-需要 Python 3.10+。命令会下载 `v1.1.1` Release、核对 SHA-256、解压并安装到 Kimi 的本地 skills 目录。
+需要 Python 3.10+。命令会下载 `v1.1.2` Release、核对 SHA-256、解压并安装到 Kimi 的本地 skills 目录。
 
 **Windows PowerShell：**
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.ps1 | iex
 ```
 
 **macOS / Linux 终端：**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.sh | sh
 ```
 
 安装后，在 Kimi 输入：
@@ -63,15 +63,15 @@ python scripts/install.py install --agent kimi
 手工下载固定版本 ZIP：
 
 ```sh
-curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.1.zip -o mpa.zip
+curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.2.zip -o mpa.zip
 unzip mpa.zip
-sh medical-presentation-architect-1.1.1/install.sh --agent kimi
+sh medical-presentation-architect-1.1.2/install.sh --agent kimi
 ```
 
 ```powershell
-Invoke-WebRequest 'https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.1.zip' -OutFile mpa.zip
+Invoke-WebRequest 'https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.2.zip' -OutFile mpa.zip
 Expand-Archive -LiteralPath mpa.zip -DestinationPath mpa-download
-& ./mpa-download/medical-presentation-architect-1.1.1/install.ps1 -Agent kimi
+& ./mpa-download/medical-presentation-architect-1.1.2/install.ps1 -Agent kimi
 ```
 
 要先查看脚本再执行，可下载 [bootstrap.ps1](bootstrap.ps1) 或 [bootstrap.sh](bootstrap.sh)，检查内容后在本机运行。Claude Code、Codex、自定义安装目录和卸载方式见 [完整安装说明](docs/usage.md)。
@@ -101,6 +101,6 @@ python scripts/install.py uninstall --agent kimi
 
 **通用本地 skills 安装器 + 可配置目标目录**是本项目安装方案。已验证 Kimi 的 Skills 与 `--skills-dir` 文档，不把自定义 manifest 描述为官方 Kimi 插件协议。未进行真实患者数据处理或多模型质量认证；不以自动检查替代医学/隐私/视觉判断。
 
-Windows PowerPoint COM 渲染由 [pywin32](https://pypi.org/project/pywin32/) 提供；`requirements.txt` 按平台安装依赖。用户仍须安装 Microsoft PowerPoint，或改用 LibreOffice 渲染。
+Windows PowerPoint COM 渲染由 [pywin32](https://pypi.org/project/pywin32/) 提供，不使用 `comtypes`；`python scripts/mpa.py render PROJECT --engine auto` 会在 Windows 优先选择 PowerPoint，其他系统寻找 LibreOffice。`requirements.txt` 按平台安装依赖。
 
 原创部分建议 MIT；外部医学图、论文图、品牌与病例各自授权。详见 LICENSE 与 [贡献指南](CONTRIBUTING.md)。

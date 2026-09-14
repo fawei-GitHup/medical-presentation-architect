@@ -1020,10 +1020,50 @@ def build_pptx(project):
     return out
 
 
+def libreoffice_executable():
+    return shutil.which("soffice") or shutil.which("libreoffice")
+
+
+def powerpoint_com_registered():
+    if os.name != "nt":
+        return False
+    try:
+        import importlib.util
+        import winreg
+
+        if importlib.util.find_spec("win32com.client") is None:
+            return False
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"PowerPoint.Application\CLSID"):
+            return True
+    except (ImportError, ModuleNotFoundError, OSError):
+        return False
+
+
+def select_render_engine(engine):
+    if engine == "auto":
+        if powerpoint_com_registered():
+            return "powerpoint"
+        if libreoffice_executable():
+            return "libreoffice"
+        raise RuntimeError(
+            "未找到支持的渲染引擎。Windows 请安装 Microsoft PowerPoint 和 pywin32；"
+            "macOS/Linux 请安装 LibreOffice。运行 `mpa.py doctor` 查看检测结果。"
+        )
+    if engine == "powerpoint" and not powerpoint_com_registered():
+        raise RuntimeError(
+            "PowerPoint COM 不可用。请安装桌面版 Microsoft PowerPoint，并在当前 Python 安装 pywin32；"
+            "本渲染器不使用 comtypes。"
+        )
+    if engine == "libreoffice" and not libreoffice_executable():
+        raise RuntimeError("未找到 LibreOffice；请安装它，或在 Windows 使用 `--engine auto`。")
+    return engine
+
+
 def render_deck(project, engine):
     pptx = project / "build/draft.pptx"
     if not pptx.exists():
         raise FileNotFoundError("run build first")
+    engine = select_render_engine(engine)
     rdir = project / "render"
     pages = rdir / "pages"
     if pages.exists():
@@ -1033,9 +1073,7 @@ def render_deck(project, engine):
         td = Path(td)
         pdf = td / "draft.pdf"
         if engine == "libreoffice":
-            exe = shutil.which("soffice") or shutil.which("libreoffice")
-            if not exe:
-                raise RuntimeError("LibreOffice not found; install it or use --engine powerpoint on Windows")
+            exe = libreoffice_executable()
             proc = subprocess.run(
                 [exe, "--headless", "--convert-to", "pdf", "--outdir", str(td), str(pptx)],
                 capture_output=True,
@@ -1045,8 +1083,6 @@ def render_deck(project, engine):
             if proc.returncode or not pdf.exists():
                 raise RuntimeError(f"LibreOffice conversion failed: {proc.stderr or proc.stdout}")
         else:
-            if os.name != "nt":
-                raise RuntimeError("PowerPoint COM rendering is available only on Windows")
             import win32com.client
 
             app = win32com.client.DispatchEx("PowerPoint.Application")
@@ -1165,21 +1201,26 @@ def export_project(project):
 
 
 def cmd_doctor(_):
-    print(f"Python {sys.version.split()[0]} · project root {ROOT}")
+    print(f"Python {sys.version.split()[0]} · 可执行文件 {sys.executable}")
+    print(f"Skill 根目录：{ROOT}")
+    powerpoint_ready = powerpoint_com_registered()
+    libreoffice = libreoffice_executable()
     print(
-        "PowerPoint COM:",
-        "available candidate"
-        if os.name == "nt" and shutil.which("POWERPNT.EXE")
-        else "requires local Office COM registration",
+        "PowerPoint COM (pywin32)：",
+        "可用；使用 --engine powerpoint 或 --engine auto" if powerpoint_ready else "不可用",
     )
-    print("LibreOffice:", shutil.which("soffice") or shutil.which("libreoffice") or "not found")
-    print("Kimi:", shutil.which("kimi") or "not found")
-    print("Required Python modules:", end=" ")
+    print("LibreOffice：", f"可用，路径 {libreoffice}" if libreoffice else "未找到")
+    print("Kimi：", shutil.which("kimi") or "未找到")
+    print("必需 Python 模块：", end="")
     import importlib.util
 
     required = {name: importlib.util.find_spec(name) is not None for name in ("pptx", "fitz", "PIL", "jsonschema")}
     missing = [name for name, found in required.items() if not found]
-    print("available" if not missing else f"missing {', '.join(missing)}; install requirements.txt")
+    print("可用" if not missing else f"缺少 {', '.join(missing)}；请安装 requirements.txt")
+    if powerpoint_ready or libreoffice:
+        print("推荐渲染选项：--engine auto -> " + ("powerpoint" if powerpoint_ready else "libreoffice"))
+    else:
+        print("推荐渲染选项：当前不可用，请先安装受支持的引擎")
 
 
 def prepare_delivery_notice(project):
@@ -1258,7 +1299,7 @@ def main():
     p.add_argument("project", type=Path)
     p = sub.add_parser("render")
     p.add_argument("project", type=Path)
-    p.add_argument("--engine", choices=["libreoffice", "powerpoint"], default="libreoffice")
+    p.add_argument("--engine", choices=["auto", "libreoffice", "powerpoint"], default="auto")
     p = sub.add_parser("review-template")
     p.add_argument("project", type=Path)
     p = sub.add_parser("prepare-delivery-notice")

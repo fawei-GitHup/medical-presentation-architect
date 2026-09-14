@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 import xml.etree.ElementTree as ET
@@ -169,6 +170,25 @@ class MpaTests(unittest.TestCase):
         self.assertEqual(interactive.returncode, 0)
         self.assertIn("INTAKE_PENDING", interactive.stdout)
         self.assertEqual(strict.returncode, 2)
+
+    def test_auto_render_prefers_windows_powerpoint(self):
+        with patch.object(mpa, "powerpoint_com_registered", return_value=True), patch.object(
+            mpa, "libreoffice_executable", return_value=None
+        ):
+            self.assertEqual(mpa.select_render_engine("auto"), "powerpoint")
+
+    def test_auto_render_falls_back_to_libreoffice(self):
+        with patch.object(mpa, "powerpoint_com_registered", return_value=False), patch.object(
+            mpa, "libreoffice_executable", return_value="/usr/bin/soffice"
+        ):
+            self.assertEqual(mpa.select_render_engine("auto"), "libreoffice")
+
+    def test_render_error_explains_supported_dependencies(self):
+        with patch.object(mpa, "powerpoint_com_registered", return_value=False), patch.object(
+            mpa, "libreoffice_executable", return_value=None
+        ):
+            with self.assertRaisesRegex(RuntimeError, "PowerPoint.*pywin32"):
+                mpa.select_render_engine("auto")
 
     def test_02_known_fields_are_not_reasked(self):
         b = mpa.read_json(self.project / "intake/design_brief.json")
