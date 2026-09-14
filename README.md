@@ -4,7 +4,7 @@ Medical PPT Suite · 1.0.0 · Kimi CLI 优先 · 中文文档
 
 可安装的医学演示规划 Skill 与工程工具：先访谈，后研究与叙事，选择恰当的内容和视觉形式，逐主张溯源，构建可编辑 PPTX，再回渲染、审核和导出。核心规则统一，Kimi / Claude Code / Codex 适配独立。
 
-**状态：本地发布候选包；GitHub 地址为计划发布地址，未发布前下载命令不可用。** 测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
+**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.0.0`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
 
 ## 安装
 
@@ -24,7 +24,7 @@ kimi --skills-dir ./local-skills
 
 在 Kimi 对话输入 `/skill:medical-presentation-architect` 加上主题。会先补齐访谈；已有信息不会重复问。完整命令和示例见 [Kimi 指南](docs/kimi-cli.md)。
 
-发布后可克隆并一键安装：
+可克隆并一键安装：
 
 ```sh
 git clone https://github.com/fawei-GitHup/medical-presentation-architect.git
@@ -32,7 +32,7 @@ cd medical-presentation-architect
 python scripts/install.py install --agent kimi
 ```
 
-发布后无需 Git 下载（先保存到本地，再安装；建议固定 tag v1.0.0）：
+也可下载固定版本 ZIP（先保存到本地，再安装）：
 
 ```sh
 curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.0.0.zip -o mpa.zip
