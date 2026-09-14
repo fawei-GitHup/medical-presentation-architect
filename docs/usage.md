@@ -7,16 +7,16 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.sh | sh
 ```
 
-脚本固定下载 `v1.1.0` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
+脚本固定下载 `v1.1.1` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
 
 ## 本地中文界面
 
@@ -45,6 +45,10 @@ python scripts/mpa.py doctor
 python scripts/mpa.py init projects/my-talk --request "为团队准备一次关于主题的专业演示"
 python scripts/mpa.py intake projects/my-talk
 ```
+
+`projects/my-talk` 必须是不存在或为空的新目录。不要在装有原始 PPT、病例图片、Python 脚本或旧渲染图的目录中运行 `init .`；原素材目录只读，项目目录单独保存访谈、计划、构建和审核产物。`intake` 在仍需回答时显示 `INTAKE_PENDING` 并正常退出，供 Kimi 继续提问；自动化测试若需要用退出码阻断，请运行 `python scripts/mpa.py intake projects/my-talk --strict-exit`。
+
+结构字段须以 JSON 写入，例如 `network_policy={"allow_public_web":true,"local_only":false}`、`privacy_constraints={"processing":"仅在本机处理","case_materials":"不使用病例材料","public_distribution":"仅科室内部"}`。脚本会先验证整份 brief，再一次性保存；输入错误时原 brief 和历史记录保持不变。
 
 Kimi/Claude/Codex Skill 会先把 `intake/user_notice.md` 的理解、已知信息、缺项、暂定项和下一步实际展示给用户；再按回答更新 `intake/design_brief.json`，重编提示词，并重新展示更新后的通知。只在真正显示后才运行 `notice-sent --kind intake`。明确需求的用户不需多一轮重复确认；模糊需求先盘点资料与标签，再提出少量有针对性的选项；局部修订保持在指定范围。
 

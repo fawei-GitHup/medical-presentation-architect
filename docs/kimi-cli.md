@@ -5,13 +5,13 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.0/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.1/bootstrap.sh | sh
 ```
 
 安装后启动 Kimi，并输入 `/skill:medical-presentation-architect` 加上你的主题。若希望先在界面中整理需求，运行安装目录下的 `scripts/ui_server.py`；浏览器表单会生成项目和可复制的 Kimi 启动命令。
@@ -32,6 +32,8 @@ kimi --skills-dir ./local-skills
 ```text
 /skill:medical-presentation-architect 我要制作口腔科护士业务学习 PPT，中文，20 分钟，约 18 页。请先访谈，已知内容不要重问。病例暂不使用，是否联网请先问我。项目放在 ./projects/dental-training。
 ```
+
+项目路径必须指向不存在或为空的新目录。即使 Kimi 当前终端位于存放原始 PPT、脚本和渲染图的目录，也不要运行 `mpa.py init .`；请使用旁边的 `./mpa-projects/dental-training-v2` 等独立目录。Kimi 的“Run this command / Approve”界面是它自己的命令权限提示，并非 Skill 故障。访谈待补充时，`intake` 会显示 `INTAKE_PENDING` 并由 Kimi 继续向用户提问，不再以红色命令失败表示正常待答状态。
 
 若 slash command 未出现，重启会话并使用自然语言：“读取 local-skills/medical-presentation-architect/SKILL.md，按其中流程先做访谈”。显式 `--skills-dir` 会替代自动发现目录；如果仍需其他技能，按本机支持情况重复传入目录。
 

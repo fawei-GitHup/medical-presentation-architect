@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$Version = if ($env:MPA_VERSION) { $env:MPA_VERSION } else { '1.1.0' }
+$Version = if ($env:MPA_VERSION) { $env:MPA_VERSION } else { '1.1.1' }
 $Agent = if ($env:MPA_AGENT) { $env:MPA_AGENT } else { 'kimi' }
 $Base = if ($env:MPA_BASE_URL) { $env:MPA_BASE_URL.TrimEnd('/') } else { "https://github.com/fawei-GitHup/medical-presentation-architect/releases/download/v$Version" }
 $ArchiveName = "medical-presentation-architect-v$Version.zip"

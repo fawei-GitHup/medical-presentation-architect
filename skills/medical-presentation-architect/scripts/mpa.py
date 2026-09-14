@@ -34,6 +34,16 @@ BLOCKING = {
     "scope": ["build"],
 }
 STATUS = {"provided", "observed", "confirmed", "inferred", "defaulted", "unknown"}
+EXPLICIT_BLOCKERS = {
+    "topic",
+    "audience",
+    "learning_outcomes",
+    "purpose",
+    "scope",
+    "network_policy",
+    "privacy_constraints",
+}
+PROJECT_MARKER = ".mpa-project.json"
 VALID_FILES = (
     "design_brief.json",
     "decision_log.json",
@@ -124,7 +134,7 @@ def init_brief(route, request, topic=None):
         if name == "privacy_constraints":
             value = {"processing": "unknown", "case_materials": "unknown", "public_distribution": "unknown"}
         if name == "deliverables":
-            value = (
+            value, status, src = (
                 ["pptx"],
                 "defaulted",
                 {"type": "safe_default", "locator": "editable PPTX is project default; confirm"},
@@ -320,6 +330,46 @@ def render_notice(notice):
     return "\n".join(lines)
 
 
+def structured_field_valid(key, value):
+    if key == "network_policy":
+        return (
+            isinstance(value, dict)
+            and set(value) == {"allow_public_web", "local_only"}
+            and all(isinstance(value[x], bool) for x in value)
+            and value["local_only"] is (not value["allow_public_web"])
+        )
+    if key == "privacy_constraints":
+        expected = {"processing", "case_materials", "public_distribution"}
+        return (
+            isinstance(value, dict)
+            and set(value) == expected
+            and all(isinstance(value[x], str) and value[x].strip() and value[x] != "unknown" for x in expected)
+        )
+    if key == "deliverables":
+        return isinstance(value, list) and bool(value) and all(isinstance(x, str) and x.strip() for x in value)
+    return value not in (None, "", [], {})
+
+
+def blocking_field_complete(key, field):
+    if not structured_field_valid(key, field.get("value")):
+        return False
+    if key in EXPLICIT_BLOCKERS:
+        return field.get("status") in ("provided", "confirmed")
+    return field.get("status") in ("provided", "confirmed", "defaulted")
+
+
+QUESTION_TEXT = {
+    "topic": "请明确本次演示的主题和边界。",
+    "audience": "这份演示主要给谁听？请说明医生、护士、混合团队或患者，以及大致基础水平。",
+    "learning_outcomes": "听众结束后应能做什么或判断什么？请给出 2–4 个可观察的学习目标。",
+    "purpose": "这份演示用于业务培训、病例讨论、学术汇报、患者宣教，还是其他用途？",
+    "scope": "请明确沿用、删除和允许重做的范围。",
+    "network_policy": "是否允许公开网络检索？请明确允许或不允许；这不代表允许上传病例资料。",
+    "privacy_constraints": "是否使用病例或临床图片，以及材料处理和最终分发范围是什么？",
+    "deliverables": "需要哪些交付物：可编辑 PPTX、PDF、逐页 PNG、讲者备注或其他格式？",
+}
+
+
 def missing_questions(brief):
     q = []
     for key, f in brief["fields"].items():
@@ -331,31 +381,28 @@ def missing_questions(brief):
             "privacy_constraints",
         }:
             continue
-        val = f["value"]
-        if f["status"] == "unknown" and f["blocking_scope"]:
+        if f["blocking_scope"] and not blocking_field_complete(key, f):
             q.append(
                 {
                     "id": key,
-                    "question": f"请补充：{key}（影响 {', '.join(f['blocking_scope'])}）",
+                    "question": QUESTION_TEXT.get(key, f"请补充 {key}。"),
                     "blocking_scope": f["blocking_scope"],
                     "affected_claims": [],
                 }
             )
-        if key in ("network_policy", "privacy_constraints") and f["status"] in ("provided", "confirmed"):
-            empty = val is None or (isinstance(val, dict) and any(x in (None, "unknown", "") for x in val.values()))
-            if empty:
-                q.append(
-                    {
-                        "id": key,
-                        "question": f"请明确 {key}，尤其联网/病例/公开的允许边界",
-                        "blocking_scope": f["blocking_scope"],
-                        "affected_claims": [],
-                    }
-                )
     return q
 
 
 def init_project(project, route, request, topic):
+    project = project.resolve()
+    if project == Path(project.anchor) or project == Path.home().resolve():
+        raise ValueError(
+            "Refusing to initialize a filesystem root or home directory; choose a dedicated project folder."
+        )
+    if project.exists() and any(project.iterdir()):
+        raise FileExistsError(
+            f"Refusing to initialize non-empty directory: {project}. Create a dedicated empty project folder; keep source PPTX and renders read-only."
+        )
     project.mkdir(parents=True, exist_ok=True)
     (project / "intake" / "history").mkdir(parents=True, exist_ok=True)
     for name in ("build", "render", "final", "sources", "assets"):
@@ -381,6 +428,10 @@ def init_project(project, route, request, topic):
     write_json(project / "claims.json", [])
     write_json(project / "assets.json", [])
     write_json(project / "opportunities.json", [])
+    write_json(
+        project / PROJECT_MARKER,
+        {"format": "medical-presentation-architect-project-v1", "created_at": now(), "brief_id": brief["brief_id"]},
+    )
     update_brief_hash(project)
     brief = read_json(project / "intake/design_brief.json")
     print(f"Created intake-first project: {project}")
@@ -425,7 +476,7 @@ def schema_errors(project):
                 errors += [f"{file} {e}" for e in schema_validate(sn, read_json(p))]
             except (json.JSONDecodeError, OSError, ValueError) as e:
                 errors.append(f"{file}: {e}")
-    return errors
+    return list(dict.fromkeys(errors))
 
 
 def cross_errors(project):
@@ -550,7 +601,7 @@ def cross_errors(project):
         required_intake = ["topic", "deliverables", "scope"]
     for key in required_intake:
         f = brief["fields"].get(key)
-        if not f or f["status"] == "unknown" or f["value"] in (None, "", [], {}):
+        if not f or not blocking_field_complete(key, f):
             errors.append(f"intake incomplete: {key}")
     claims = read_json(project / "claims.json")
     assets = read_json(project / "assets.json")
@@ -566,13 +617,9 @@ def cross_errors(project):
             continue
         if f["status"] not in ("provided", "confirmed"):
             errors.append(f"explicit user decision required: {key}")
-        if (
-            f["value"] is None
-            or isinstance(f["value"], dict)
-            and any(v in (None, "unknown", "") for v in f["value"].values())
-        ):
+        if not structured_field_valid(key, f["value"]):
             errors.append(f"explicit user decision required: {key}")
-    return errors
+    return list(dict.fromkeys(errors))
 
 
 def project_fingerprint(project):
@@ -1200,6 +1247,11 @@ def main():
     p.add_argument("--brief-status", choices=["intake", "planning", "building", "review", "discussion_only"])
     p = sub.add_parser("intake")
     p.add_argument("project", type=Path)
+    p.add_argument(
+        "--strict-exit",
+        action="store_true",
+        help="Return exit code 2 when questions remain. Default prints INTAKE_PENDING and exits successfully for interactive agents.",
+    )
     p = sub.add_parser("validate")
     p.add_argument("project", type=Path)
     p = sub.add_parser("build")
@@ -1233,14 +1285,10 @@ def main():
             return 0
         if args.command == "set-field":
             path = project / "intake/design_brief.json"
-            brief = read_json(path)
-            old_hash = brief_hash(brief)
+            old_brief = read_json(path)
+            brief = json.loads(json.dumps(old_brief, ensure_ascii=False))
+            old_hash = brief_hash(old_brief)
             archive = project / "intake/history" / f"design-brief-v{brief['version']}.json"
-            archive.parent.mkdir(parents=True, exist_ok=True)
-            archive.write_text(json.dumps(brief, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            brief["history"].append(
-                {"version": brief["version"], "hash": old_hash, "path": archive.relative_to(project).as_posix()}
-            )
             changed = []
             for assignment in args.set:
                 key, sep, raw = assignment.partition("=")
@@ -1264,9 +1312,21 @@ def main():
                 and any(x.partition("=")[0] == "purpose" and "only discuss" in x.lower() for x in args.set)
                 else "intake"
             )
+            brief["history"].append(
+                {
+                    "version": old_brief["version"],
+                    "hash": old_hash,
+                    "path": archive.relative_to(project).as_posix(),
+                }
+            )
             brief["unresolved_items"] = missing_questions(brief)
             brief.pop("brief_hash", None)
             brief["brief_hash"] = brief_hash(brief)
+            update_errors = schema_validate("design-brief", brief)
+            if update_errors:
+                raise ValueError("invalid brief update; no changes saved: " + "; ".join(update_errors[:5]))
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_text(json.dumps(old_brief, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             write_json(path, brief)
             logpath = project / "intake/decision_log.json"
             log = read_json(logpath)
@@ -1300,7 +1360,8 @@ def main():
                 print(
                     f"{len(questions)} unanswered blocking item(s). Update design_brief.json with user answers; already known fields are not asked again."
                 )
-                return 2
+                print("INTAKE_PENDING: this is a normal interview state, not a command failure.")
+                return 2 if args.strict_exit else 0
             if brief["route"] == "fuzzy":
                 print(
                     "Open the inspected content_inventory.json, offer 2–3 evidence-based positioning options, and confirm only material scope changes."

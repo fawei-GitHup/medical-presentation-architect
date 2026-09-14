@@ -97,6 +97,79 @@ class MpaTests(unittest.TestCase):
         self.assertEqual(brief["fields"]["audience"]["status"], "provided")
         self.assertIn("--skills-dir", ui_server.kimi_command(project))
 
+    def test_init_uses_valid_deliverables_default(self):
+        brief = mpa.init_brief("fuzzy", "口腔数字化培训")
+        field = brief["fields"]["deliverables"]
+        self.assertEqual(field["value"], ["pptx"])
+        self.assertEqual(field["status"], "defaulted")
+        self.assertFalse(any(q["id"] == "deliverables" for q in mpa.missing_questions(brief)))
+        self.assertEqual(mpa.schema_validate("design-brief", brief), [])
+
+    def test_init_refuses_nonempty_source_directory(self):
+        source = self.tmp / "source-ppts"
+        source.mkdir()
+        original = source / "original.pptx"
+        original.write_bytes(b"read-only sentinel")
+        with self.assertRaisesRegex(FileExistsError, "non-empty directory"):
+            mpa.init_project(source, "fuzzy", "优化现有演示", None)
+        self.assertEqual(original.read_bytes(), b"read-only sentinel")
+        self.assertFalse((source / "intake").exists())
+        self.assertFalse((source / "sources.json").exists())
+
+    def test_inferred_or_observed_blockers_still_require_confirmation(self):
+        brief = mpa.init_brief("fuzzy", "口腔数字化培训")
+        brief["fields"]["audience"].update(value="可能是医护混合团队", status="inferred")
+        brief["fields"]["learning_outcomes"].update(value=["理解流程"], status="observed")
+        ids = {q["id"] for q in mpa.missing_questions(brief)}
+        self.assertIn("audience", ids)
+        self.assertIn("learning_outcomes", ids)
+
+    def test_structured_safety_fields_cannot_be_freeform_strings(self):
+        brief = mpa.init_brief("fuzzy", "口腔数字化培训")
+        brief["fields"]["network_policy"].update(value="允许联网", status="confirmed")
+        brief["fields"]["privacy_constraints"].update(value="注意隐私", status="confirmed")
+        ids = {q["id"] for q in mpa.missing_questions(brief)}
+        self.assertIn("network_policy", ids)
+        self.assertIn("privacy_constraints", ids)
+        errors = mpa.schema_validate("design-brief", brief)
+        self.assertTrue(any("network_policy" in error for error in errors))
+        self.assertTrue(any("privacy_constraints" in error for error in errors))
+
+    def test_set_field_rejects_malformed_safety_value_without_mutation(self):
+        project = self.tmp / "atomic-update"
+        mpa.init_project(project, "fuzzy", "口腔数字化培训", None)
+        brief_path = project / "intake/design_brief.json"
+        before = brief_path.read_bytes()
+        history_before = list((project / "intake/history").glob("*.json"))
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/mpa.py"),
+                "set-field",
+                str(project),
+                "--set",
+                "network_policy=允许联网",
+                "--status",
+                "confirmed",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("invalid brief update", proc.stderr)
+        self.assertEqual(brief_path.read_bytes(), before)
+        self.assertEqual(list((project / "intake/history").glob("*.json")), history_before)
+
+    def test_interactive_intake_pending_is_not_a_command_failure(self):
+        project = self.tmp / "pending-intake"
+        mpa.init_project(project, "fuzzy", "口腔数字化培训", None)
+        base = [sys.executable, str(ROOT / "scripts/mpa.py"), "intake", str(project)]
+        interactive = subprocess.run(base, capture_output=True, text=True)
+        strict = subprocess.run(base + ["--strict-exit"], capture_output=True, text=True)
+        self.assertEqual(interactive.returncode, 0)
+        self.assertIn("INTAKE_PENDING", interactive.stdout)
+        self.assertEqual(strict.returncode, 2)
+
     def test_02_known_fields_are_not_reasked(self):
         b = mpa.read_json(self.project / "intake/design_brief.json")
         self.assertFalse(any(q["id"] == "audience" for q in mpa.missing_questions(b)))

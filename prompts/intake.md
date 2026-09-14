@@ -1,6 +1,6 @@
 # 启动前访谈
 
-先读取当前对话和用户已提供的材料清单，提取用户明确说明的事实；引用的旧 PPT 只能作为待盘点材料，不能自动当作新项目的受众、临床结论或制作要求。主事实记录是项目目录下的 `intake/design_brief.json`，不是临时 `project.json`。
+先读取当前对话和用户已提供的材料清单，提取用户明确说明的事实；引用的旧 PPT 只能作为待盘点材料，不能自动当作新项目的受众、临床结论或制作要求。主事实记录是独立项目目录下的 `intake/design_brief.json`，不是临时 `project.json`。若当前目录已有原始 PPT、脚本、渲染图或其他文件，先在其外部新建项目目录；原素材仅以路径登记和只读盘点，禁止运行 `init .` 混入生成文件。
 
 先在对话中简短说明：你理解的主题/目标、会先做什么、已知信息、关键缺项或安全边界、已披露的默认建议、范围和下一步。再问尚未知且会影响工作的内容；跳过已经回答的字段。不为满足问卷而追问低影响细节，不推测用户选择。
 
@@ -15,6 +15,8 @@
 
 用户只有主题、附件或“优化”时先做多标签材料清点；若没有视觉能力，诚实记录 `visual_review=not_available`。然后基于观察而非猜测，提出 2–3 个可选目标/组织方向，指出每个方向适用听众或证据缺口；明确询问受众、学习目标、使用情境和希望保留/改变的范围。不能默认护士视角。
 
-每字段写入 `value/status/origin/confidence/blocking_scope`。状态只能是 `provided`、`observed`、`confirmed`、`inferred`、`defaulted`、`unknown`；用户材料中的值为 observed，不自动升格为确认事实。网络许可、病例用途、外部发布、临床指令不设默许同意。普通设计项只有经用户接受或明确委托，才记为 `confirmed` 或授权委托结果。
+每字段写入 `value/status/origin/confidence/blocking_scope`。状态只能是 `provided`、`observed`、`confirmed`、`inferred`、`defaulted`、`unknown`；用户材料中的值为 observed，不自动升格为确认事实。受众、学习目标、用途、联网许可、隐私边界等关键字段即使已有推断值，仍是待确认项。网络许可、病例用途、外部发布、临床指令不设默许同意。普通设计项只有经用户接受或明确委托，才记为 `confirmed` 或授权委托结果。
 
-使用 `python scripts/mpa.py init PROJECT --request ...` 创建记录，随后运行 `python scripts/mpa.py intake PROJECT`。缺项按受影响阶段追问；回答后更新 brief、decision log、history，并重编执行提示词与可见通知。准备好且授权继续制作后才进入研究与制作。只想讨论方案时记录 `discussion_only` 并停在 brief。
+写入结构字段时必须传 JSON：联网为 `{"allow_public_web":true,"local_only":false}` 或 `{"allow_public_web":false,"local_only":true}`；隐私为 `{"processing":"仅在本机处理","case_materials":"不使用病例材料","public_distribution":"仅科室内部"}`；交付物为 `["pptx","pdf","png"]`。不得用“允许联网”“注意隐私”等自由文本替代整个结构。`set-field` 会先完成 Schema 校验，失败时不得绕过脚本直接改 brief。
+
+使用 `python scripts/mpa.py init ./mpa-projects/PROJECT --request ...` 创建记录，随后运行 `python scripts/mpa.py intake ./mpa-projects/PROJECT`。`init` 拒绝非空目录是保护机制，应换用新的独立目录，不得清空或改写原素材目录。缺项按受影响阶段追问；回答后更新 brief、decision log、history，并重编执行提示词与可见通知。交互时默认以 `INTAKE_PENDING` 提示待回答项；脚本/CI 才使用 `--strict-exit`。准备好且授权继续制作后才进入研究与制作。只想讨论方案时记录 `discussion_only` 并停在 brief。

@@ -110,6 +110,10 @@ def normalize_fields(data: dict) -> dict:
         allowed = bool(web_allowed)
         fields["network_policy"] = {"allow_public_web": allowed, "local_only": not allowed}
     if any(x is not None for x in (patient_materials, public_distribution)):
+        if isinstance(patient_materials, bool):
+            patient_materials = (
+                "包含病例、临床照片或影像，必须先确认脱敏与授权" if patient_materials else "不使用病例材料"
+            )
         fields["privacy_constraints"] = {
             "processing": "仅在本机处理",
             "case_materials": patient_materials or "未提供",

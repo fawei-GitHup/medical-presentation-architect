@@ -4,7 +4,7 @@
 
 已运行/将随发布复跑的检查：
 
-- 37 项单元与工作流测试，其中 20 项覆盖访谈/通知附录场景，3 项覆盖本地界面的路径、字段转换和 Schema 集成：`python -m unittest discover -s tests -v`
+- 43 项单元与工作流测试，其中 20 项覆盖访谈/通知附录场景，3 项覆盖本地界面，并包含非空素材目录保护、结构化安全字段、事务式字段更新、推断值确认和交互式 intake 退出行为回归：`python -m unittest discover -s tests -v`
 - Python lint：`ruff check scripts tests`
 - 集中发布完整性检查：`python scripts/release_check.py`
 - Windows PowerShell 安装/卸载脚本通过语法解析与实际 smoke test；通用安装器测试覆盖碰撞拒绝与保留用户修改；发布 ZIP 的文件清单与 SHA-256 校验通过。

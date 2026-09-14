@@ -6,15 +6,15 @@ description: 规划、制作或审计医生护士医学演示文稿；先访谈�
 # Medical Presentation Architect
 
 统一医学与演示规则；仅加载当前宿主的 adapters 文件，不改变模型、密钥或权限配置。
-本目录为技能根目录，所有相对路径以此为基准。用户项目放在独立目录，绝不写回本技能。
+本目录为技能根目录，所有相对路径以此为基准。每个用户项目必须放在新建的独立目录；原始 PPT、病例、脚本与渲染图所在目录只读盘点，绝不在其中运行 `init .`，也绝不写回本技能。
 
 ## 启动
 
-1. 读取 [prompts/adaptive-intake.md](prompts/adaptive-intake.md) 与 [prompts/intake.md](prompts/intake.md)，从本轮、已授权上下文、用户材料提取已知信息；同时识别明确需求、模糊需求、局部修改三种入口。
+1. 读取 [prompts/adaptive-intake.md](prompts/adaptive-intake.md) 与 [prompts/intake.md](prompts/intake.md)，从本轮、已授权上下文、用户材料提取已知信息；同时识别明确需求、模糊需求、局部修改三种入口。先选择一个不存在或为空的独立项目目录，例如 `./mpa-projects/cadcam-v22`；不得把当前素材目录、用户主目录或磁盘根目录当作项目目录。
 2. 逐页盘点用户给的 PPT，先建立多标签 content inventory。来源状态要区分 `provided/observed/confirmed/inferred/defaulted/unknown`，不能将观察或推断升格为用户确认。
 3. 以 `intake/design_brief.json` 为唯一需求事实源；决策记入 `decision_log.json`，可读执行提示词由 brief 自动生成。已有信息不可重问。每轮默认问 3–5 个最重要缺口，临床安全缺口可继续阻断受影响操作。
 4. 用户明确委托自主决定的设计项可记录为 delegated；完整信息不要求再走形式化确认。intake 未完成前只可清点材料与检查环境，不可开始检索、叙事或 PPT 生成。
-5. 运行 `python scripts/mpa.py intake PROJECT`。退出码 2 表示仍有缺项；不得把空字符串或“以后再说”当作完成。
+5. 运行 `python scripts/mpa.py intake PROJECT`。交互模式出现 `INTAKE_PENDING` 表示仍有缺项，但命令正常返回，避免宿主误报为执行失败；自动化或 CI 需要非零阻断时使用 `--strict-exit`。不得把空字符串、“以后再说”、观察值或模型推断当作用户已确认。
 6. 在用户对话中实际说明本次理解、处理方式、复用了什么、还缺什么、暂定建议、修改范围和下一步。user_notice.md 只是草稿，只有真正显示后才能记为 sent；不得把沉默写成确认。
 
 ## 执行路线
