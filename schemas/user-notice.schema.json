@@ -22,7 +22,8 @@
     "response_reason": {"type": "string"},
     "delivery_status": {"enum": ["prepared", "sent"]},
     "delivery_channel": {"type": ["string", "null"]},
-    "message_id": {"type": ["string", "null"]}
+    "message_id": {"type": ["string", "null"]},
+    "qa_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
   },
   "allOf": [
     {

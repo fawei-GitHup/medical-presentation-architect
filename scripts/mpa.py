@@ -728,7 +728,10 @@ def machine_report(project):
             render = read_json(render_path)
             if not draft.exists() or sha_file(draft) != render["pptx_sha256"]:
                 errors.append("render is stale relative to draft PPTX")
-            if not Path(render["pdf"]).is_file() or sha_file(render["pdf"]) != render["pdf_sha256"]:
+            pdf_path = (project / render["pdf"]).resolve()
+            if project.resolve() not in pdf_path.parents:
+                errors.append("render PDF path escapes the project")
+            elif not pdf_path.is_file() or sha_file(pdf_path) != render["pdf_sha256"]:
                 errors.append("render PDF is missing or stale")
             if len(render["pages"]) != len(plan["slides"]):
                 errors.append("render page count does not match slide plan")
@@ -765,12 +768,32 @@ def machine_report(project):
         ):
             errors.append(f"clinical asset privacy/consent uncleared: {asset['id']}")
     review_path = project / "review.json"
+    review_progress = {
+        "template_exists": review_path.is_file(),
+        "fingerprint_current": None,
+        "reviewer": "",
+        "role": "pending",
+        "status": "pending",
+        "slide_total": len(plan["slides"]),
+        "slides_complete": [],
+        "slides_incomplete": [slide["id"] for slide in plan["slides"]],
+        "warnings_total": len(warnings),
+        "warnings_resolved": [],
+        "warnings_unresolved": [warning["id"] for warning in warnings],
+    }
     if not review_path.exists():
         errors.append("manual review missing")
     else:
         review = read_json(review_path)
         current = project_fingerprint(project)
-        if review.get("fingerprint") != current:
+        fingerprint_current = review.get("fingerprint") == current
+        review_progress.update(
+            fingerprint_current=fingerprint_current,
+            reviewer=review.get("reviewer", ""),
+            role=review.get("role", "pending"),
+            status=review.get("status", "pending"),
+        )
+        if not fingerprint_current:
             errors.append("manual review fingerprint stale; inspect all updated pages and review again")
         if (
             review.get("status") != "approved"
@@ -786,14 +809,29 @@ def machine_report(project):
         if clinical_claims and review.get("role") != "clinical_expert":
             errors.append("clinical content requires a named clinical expert review")
         got = {x.get("slide_id"): x for x in review.get("slides", [])}
+        complete_ids = []
+        incomplete_ids = []
         for slide in plan["slides"]:
             row = got.get(slide["id"])
-            if not row or not all(row.get("checks", {}).values()):
-                errors.append(f"manual review incomplete for slide {slide['id']}")
+            if row and all(row.get("checks", {}).values()):
+                complete_ids.append(slide["id"])
+            else:
+                incomplete_ids.append(slide["id"])
+        review_progress.update(slides_complete=complete_ids, slides_incomplete=incomplete_ids)
+        if incomplete_ids:
+            errors.append(f"manual review incomplete: {len(incomplete_ids)} slide(s); see review_progress.slides_incomplete")
         resolutions = review.get("warning_resolutions", {})
-        for warning in warnings:
-            if not str(resolutions.get(warning["id"], "")).strip():
-                errors.append(f"warning unresolved: {warning['id']}")
+        resolved_warnings = [w["id"] for w in warnings if str(resolutions.get(w["id"], "")).strip()]
+        unresolved_warnings = [w["id"] for w in warnings if w["id"] not in resolved_warnings]
+        review_progress.update(
+            warnings_resolved=resolved_warnings,
+            warnings_unresolved=unresolved_warnings,
+        )
+        if unresolved_warnings:
+            errors.append(
+                f"warning resolutions incomplete: {len(unresolved_warnings)} item(s); "
+                "see review_progress.warnings_unresolved"
+            )
     if not errors:
         status = "release_ready"
     elif not render_path.exists() or any("render" in e or "review" in e for e in errors):
@@ -804,12 +842,36 @@ def machine_report(project):
         status = "needs_evidence"
     else:
         status = "draft"
+    errors = sorted(set(errors))
+    if not errors:
+        summary = "QA 已通过，可以准备交付通知。"
+        next_actions = ["运行 prepare-delivery-notice，在对话中展示后登记 sent，再执行 export。"]
+    elif review_path.exists() and review_progress["slides_incomplete"]:
+        summary = (
+            f"QA 尚未通过：{len(review_progress['slides_incomplete'])}/{review_progress['slide_total']} 页未完成逐页审核，"
+            f"{len(review_progress['warnings_unresolved'])} 个 warning 尚未处理。"
+        )
+        next_actions = [
+            "逐页查看 render/pages 中的 PNG，并在 review.json 完成 visual、medical、citations、privacy、notes 五项。",
+            "每个 warning 必须修改页面或在 warning_resolutions 中写明具体理由。",
+            "医学内容须由真实且可追责的临床专家填写 reviewer、role=clinical_expert、reviewed_at 和 status=approved。",
+            "完成后重新运行 qa；QA 通过前不要准备或登记交付通知。",
+        ]
+    elif not review_path.exists():
+        summary = "QA 尚未通过：缺少人工审核记录。"
+        next_actions = ["先运行 review-template，再逐页审核 render/pages 中的所有 PNG。"]
+    else:
+        summary = f"QA 尚未通过：共有 {len(errors)} 类阻断问题。"
+        next_actions = ["按 errors 修复后重新运行 qa；QA 通过前不要准备交付通知。"]
     return {
         "passed": not errors,
         "status": status,
         "fingerprint": project_fingerprint(project),
-        "errors": sorted(set(errors)),
+        "summary": summary,
+        "errors": errors,
         "warnings": warnings,
+        "review_progress": review_progress,
+        "next_actions": next_actions,
         "slide_count": len(plan["slides"]),
         "generated_at": now(),
     }
@@ -1143,21 +1205,27 @@ def create_review(project):
 
 def export_project(project):
     report = machine_report(project)
+    write_json(project / "qa_report.json", report)
+    if not report["passed"]:
+        raise RuntimeError("Export blocked: " + report["summary"] + " See qa_report.json.")
     delivery_path = project / "intake/delivery_notice.json"
     notice = read_json(delivery_path) if delivery_path.is_file() else {}
     if (
         notice.get("notice_kind") != "delivery"
         or notice.get("delivery_status") != "sent"
         or not str(notice.get("delivery_channel") or "").strip()
+        or notice.get("qa_fingerprint") != report["fingerprint"]
     ):
         report["passed"] = False
         report["status"] = "needs_user_notice"
-        report["errors"] = sorted(
-            set(report["errors"] + ["final delivery notice has not been prepared, shown and recorded as sent"])
-        )
+        report["summary"] = "QA 已通过，但当前质量指纹的交付通知尚未生成、展示并登记。"
+        report["errors"] = ["final delivery notice for the current QA fingerprint has not been prepared, shown and recorded as sent"]
+        report["next_actions"] = [
+            "运行 prepare-delivery-notice，在对话中展示 intake/delivery_notice.md，再运行 notice-sent --kind delivery。"
+        ]
     write_json(project / "qa_report.json", report)
     if not report["passed"]:
-        raise RuntimeError("Export blocked; see qa_report.json (" + str(len(report["errors"])) + " errors).")
+        raise RuntimeError("Export blocked: " + report["summary"] + " See qa_report.json.")
     final = project / "final"
     if any(x.is_file() for x in final.rglob("*") if x.name != ".gitignore"):
         raise FileExistsError("final directory already contains an export; use a new versioned project directory")
@@ -1224,6 +1292,10 @@ def cmd_doctor(_):
 
 
 def prepare_delivery_notice(project):
+    report = machine_report(project)
+    write_json(project / "qa_report.json", report)
+    if not report["passed"]:
+        raise RuntimeError("交付通知未生成：" + report["summary"] + " 请先完成 qa_report.json 中的审核任务。")
     brief = read_json(project / "intake/design_brief.json")
     notice = build_notice(brief)
     notice.update(
@@ -1238,6 +1310,7 @@ def prepare_delivery_notice(project):
         delivery_status="prepared",
         delivery_channel=None,
         message_id=None,
+        qa_fingerprint=report["fingerprint"],
     )
     notice_path = project / "intake/delivery_notice.json"
     write_json(notice_path, notice)
@@ -1259,6 +1332,13 @@ def mark_notice_sent(project, channel, kind):
         raise RuntimeError("Cannot mark a stale user notice as sent; regenerate it and show the current notice first.")
     if not channel.strip():
         raise ValueError("A real delivery channel is required.")
+    if kind == "delivery":
+        report = machine_report(project)
+        write_json(project / "qa_report.json", report)
+        if not report["passed"]:
+            raise RuntimeError("不能登记交付通知：" + report["summary"])
+        if notice.get("qa_fingerprint") != report["fingerprint"]:
+            raise RuntimeError("不能登记过期的交付通知；请在当前 QA 通过后重新生成并展示通知。")
     notice.update(delivery_status="sent", delivery_channel=channel.strip())
     write_json(path, notice)
     print(f"Recorded the {kind} notice as sent. Use this command only after showing it in the actual conversation.")
@@ -1310,6 +1390,11 @@ def main():
     p.add_argument("--channel", required=True, help="Actual user-facing channel, e.g. codex_conversation")
     p = sub.add_parser("qa")
     p.add_argument("project", type=Path)
+    p.add_argument(
+        "--strict-exit",
+        action="store_true",
+        help="QA 未通过时返回退出码 2；默认输出 QA_PENDING 并正常返回，供交互式 agent 继续审核。",
+    )
     p = sub.add_parser("export")
     p.add_argument("project", type=Path)
     args = ap.parse_args()
@@ -1441,7 +1526,9 @@ def main():
             rep = machine_report(project)
             write_json(project / "qa_report.json", rep)
             print(json.dumps(rep, ensure_ascii=False, indent=2))
-            return 0 if rep["passed"] else 2
+            if not rep["passed"]:
+                print("QA_PENDING：这是正常的审核待办状态，不是命令故障。")
+            return 0 if rep["passed"] or not args.strict_exit else 2
         if args.command == "export":
             print("Exported:", export_project(project))
             return 0

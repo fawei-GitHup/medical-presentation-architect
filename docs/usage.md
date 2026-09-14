@@ -7,16 +7,16 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.3/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.3/bootstrap.sh | sh
 ```
 
-脚本固定下载 `v1.1.2` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
+脚本固定下载 `v1.1.3` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
 
 ## 本地中文界面
 
@@ -69,6 +69,8 @@ python scripts/mpa.py review-template projects/my-talk
 # 逐页检查所有 PNG、文字、speaker notes、证据和隐私；填写 review.json
 python scripts/mpa.py qa projects/my-talk
 ```
+
+交互式 `qa` 未通过时会输出 `QA_PENDING` 并正常返回，详细进度在 `qa_report.json` 的 `summary`、`review_progress` 和 `next_actions`。CI 若需非零退出码可加 `--strict-exit`。`review-template` 仅生成空白表，实际逐页审阅后必须填写；QA 通过前，脚本拒绝生成或登记交付通知，也不会执行导出。
 
 QA 未通过人工审核时返回非零是预期行为。任何内容/素材/PPTX/渲染修改都会使审核指纹过期，须重新构建、回渲染并审核。审核通过后生成当前 brief 的交付通知，并先在会话中展示；再记录它已发出并导出：
 

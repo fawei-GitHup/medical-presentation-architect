@@ -1,25 +1,25 @@
 # medical-presentation-architect
 
-Medical PPT Suite · 1.1.2 · Kimi CLI 优先 · 中文界面与文档
+Medical PPT Suite · 1.1.3 · Kimi CLI 优先 · 中文界面与文档
 
 可安装的医学演示规划 Skill 与工程工具：先访谈，后研究与叙事，选择恰当的内容和视觉形式，逐主张溯源，构建可编辑 PPTX，再回渲染、审核和导出。核心规则统一，Kimi / Claude Code / Codex 适配独立。
 
-**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.1.2`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
+**公开仓库：** [fawei-GitHup/medical-presentation-architect](https://github.com/fawei-GitHup/medical-presentation-architect)。固定版本安装示例使用 `v1.1.3`。测试范围与限制见 [测试报告](docs/validation.md)。这不是医学知识库，不自动认证临床准确性。
 
 ## 一行安装
 
-需要 Python 3.10+。命令会下载 `v1.1.2` Release、核对 SHA-256、解压并安装到 Kimi 的本地 skills 目录。
+需要 Python 3.10+。命令会下载 `v1.1.3` Release、核对 SHA-256、解压并安装到 Kimi 的本地 skills 目录。
 
 **Windows PowerShell：**
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.3/bootstrap.ps1 | iex
 ```
 
 **macOS / Linux 终端：**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.2/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.3/bootstrap.sh | sh
 ```
 
 安装后，在 Kimi 输入：
@@ -63,15 +63,15 @@ python scripts/install.py install --agent kimi
 手工下载固定版本 ZIP：
 
 ```sh
-curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.2.zip -o mpa.zip
+curl --fail --location https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.3.zip -o mpa.zip
 unzip mpa.zip
-sh medical-presentation-architect-1.1.2/install.sh --agent kimi
+sh medical-presentation-architect-1.1.3/install.sh --agent kimi
 ```
 
 ```powershell
-Invoke-WebRequest 'https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.2.zip' -OutFile mpa.zip
+Invoke-WebRequest 'https://github.com/fawei-GitHup/medical-presentation-architect/archive/refs/tags/v1.1.3.zip' -OutFile mpa.zip
 Expand-Archive -LiteralPath mpa.zip -DestinationPath mpa-download
-& ./mpa-download/medical-presentation-architect-1.1.2/install.ps1 -Agent kimi
+& ./mpa-download/medical-presentation-architect-1.1.3/install.ps1 -Agent kimi
 ```
 
 要先查看脚本再执行，可下载 [bootstrap.ps1](bootstrap.ps1) 或 [bootstrap.sh](bootstrap.sh)，检查内容后在本机运行。Claude Code、Codex、自定义安装目录和卸载方式见 [完整安装说明](docs/usage.md)。

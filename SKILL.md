@@ -46,4 +46,4 @@ intake → project inventory (fuzzy request) → versioned design brief → exec
 
 ## 实用命令
 
-`python scripts/mpa.py --help` 查看命令。`doctor` 检查环境并给出实际可用的渲染器；`init PROJECT` 创建访谈记录；`validate PROJECT` 校验 JSON 与关系；`build PROJECT` 生成草稿；`render PROJECT --engine auto` 自动选择受支持的引擎并回渲染；`review-template PROJECT` 创建待人工填写审核；`qa PROJECT` 运行门禁；`prepare-delivery-notice PROJECT` 生成待展示的交付通知；通知确实显示后用 `notice-sent --kind delivery --channel ...` 记账；`export PROJECT` 仅在全部通过时输出最终包。环境诊断以 `doctor` 为准，不自行测试未列入 requirements 的模块，也不通过 shell 管道解析脚本源码。
+`python scripts/mpa.py --help` 查看命令。`doctor` 检查环境并给出实际可用的渲染器；`init PROJECT` 创建访谈记录；`validate PROJECT` 校验 JSON 与关系；`build PROJECT` 生成草稿；`render PROJECT --engine auto` 自动选择受支持的引擎并回渲染；`review-template PROJECT` 只创建空白审核表，不代表审核完成；`qa PROJECT` 运行门禁，交互模式的 `QA_PENDING` 是正常待办状态，CI 才使用 `--strict-exit`；`prepare-delivery-notice PROJECT` 只能在 QA 通过后生成待展示的交付通知；通知确实显示后用 `notice-sent --kind delivery --channel ...` 记账；`export PROJECT` 仅在全部通过时输出最终包。环境诊断以 `doctor` 为准，不自行测试未列入 requirements 的模块，也不通过 shell 管道解析脚本源码。

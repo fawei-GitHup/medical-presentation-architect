@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.3 — 2026-09-15
+
+修复 QA 对 `render/draft.pdf` 相对路径的解析，使任何工作目录下运行结果一致。空白 review 不再展开成每页一条错误，`qa_report.json` 新增汇总、完整审核进度与下一步；交互式 `qa` 用 `QA_PENDING` 正常返回，CI 可用 `--strict-exit`。QA 未通过时禁止准备或登记交付通知；通知绑定当前 QA 指纹，旧通知不能放行新审核结果。新增 4 项回归测试并将测试总数增至 50。
+
 ## 1.1.2 — 2026-09-15
 
 修复 Windows 渲染器探测：`doctor` 直接检查 PowerPoint COM 注册与当前 Python 的 pywin32，并输出实际可用引擎和推荐命令；`render` 默认改为 `--engine auto`，Windows 优先 PowerPoint，其他环境回退 LibreOffice。Kimi 适配器明确禁止误用未依赖的 comtypes 以及 Windows 下易失败的 grep/sed 源码诊断。新增 3 项渲染选择回归测试，并用本机 PowerPoint 16.0 完成真实 PDF/逐页 PNG 渲染验证。

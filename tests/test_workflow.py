@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -363,19 +364,118 @@ class MpaTests(unittest.TestCase):
 
     def test_export_requires_user_notice_to_be_shown(self):
         mpa.compile_prompt(self.project)
-        with self.assertRaisesRegex(RuntimeError, "Export blocked"):
+        ready = {
+            "passed": True,
+            "status": "release_ready",
+            "fingerprint": "a" * 64,
+            "summary": "QA 已通过。",
+            "errors": [],
+            "warnings": [],
+            "review_progress": {},
+            "next_actions": [],
+            "slide_count": 6,
+            "generated_at": mpa.now(),
+        }
+        with patch.object(mpa, "machine_report", return_value=ready), self.assertRaisesRegex(
+            RuntimeError, "Export blocked"
+        ):
             mpa.export_project(self.project)
         report = mpa.read_json(self.project / "qa_report.json")
         self.assertEqual(report["status"], "needs_user_notice")
-        self.assertTrue(any("final delivery notice has not been prepared" in e for e in report["errors"]))
+        self.assertTrue(any("current QA fingerprint" in e for e in report["errors"]))
 
     def test_delivery_notice_is_bound_to_current_brief(self):
-        notice = mpa.prepare_delivery_notice(self.project)
-        self.assertEqual(notice["notice_kind"], "delivery")
-        self.assertEqual(notice["delivery_status"], "prepared")
-        self.assertEqual(notice["questions"], [])
-        mpa.mark_notice_sent(self.project, "codex_conversation", "delivery")
+        ready = {
+            "passed": True,
+            "status": "release_ready",
+            "fingerprint": "b" * 64,
+            "summary": "QA 已通过。",
+            "errors": [],
+            "warnings": [],
+            "review_progress": {},
+            "next_actions": [],
+            "slide_count": 6,
+            "generated_at": mpa.now(),
+        }
+        with patch.object(mpa, "machine_report", return_value=ready):
+            notice = mpa.prepare_delivery_notice(self.project)
+            self.assertEqual(notice["notice_kind"], "delivery")
+            self.assertEqual(notice["delivery_status"], "prepared")
+            self.assertEqual(notice["qa_fingerprint"], ready["fingerprint"])
+            self.assertEqual(notice["questions"], [])
+            mpa.mark_notice_sent(self.project, "codex_conversation", "delivery")
         self.assertEqual(mpa.cross_errors(self.project), [])
+
+    def test_delivery_notice_is_blocked_until_qa_passes(self):
+        with self.assertRaisesRegex(RuntimeError, "交付通知未生成"):
+            mpa.prepare_delivery_notice(self.project)
+        self.assertFalse((self.project / "intake/delivery_notice.json").exists())
+
+    def test_render_pdf_path_is_resolved_from_project(self):
+        draft = mpa.build_pptx(self.project)
+        render_dir = self.project / "render"
+        pages_dir = render_dir / "pages"
+        pages_dir.mkdir(parents=True)
+        pdf = render_dir / "draft.pdf"
+        pdf.write_bytes(b"synthetic pdf marker")
+        pages = []
+        for i in range(1, 7):
+            page = pages_dir / f"slide-{i:03}.png"
+            page.write_bytes(f"page-{i}".encode())
+            pages.append({"path": f"render/pages/{page.name}", "sha256": mpa.sha_file(page)})
+        mpa.write_json(
+            render_dir / "render.json",
+            {
+                "pptx_sha256": mpa.sha_file(draft),
+                "engine": "powerpoint",
+                "pdf": "render/draft.pdf",
+                "pdf_sha256": mpa.sha_file(pdf),
+                "pages": pages,
+            },
+        )
+        old_cwd = Path.cwd()
+        try:
+            os.chdir(ROOT.parent)
+            report = mpa.machine_report(self.project)
+        finally:
+            os.chdir(old_cwd)
+        self.assertNotIn("render PDF is missing or stale", report["errors"])
+
+    def test_blank_review_is_summarized_instead_of_expanded_per_slide(self):
+        draft = mpa.build_pptx(self.project)
+        render_dir = self.project / "render"
+        pages_dir = render_dir / "pages"
+        pages_dir.mkdir(parents=True)
+        pdf = render_dir / "draft.pdf"
+        pdf.write_bytes(b"synthetic pdf marker")
+        pages = []
+        for i in range(1, 7):
+            page = pages_dir / f"slide-{i:03}.png"
+            page.write_bytes(f"page-{i}".encode())
+            pages.append({"path": f"render/pages/{page.name}", "sha256": mpa.sha_file(page)})
+        mpa.write_json(
+            render_dir / "render.json",
+            {
+                "pptx_sha256": mpa.sha_file(draft),
+                "engine": "powerpoint",
+                "pdf": "render/draft.pdf",
+                "pdf_sha256": mpa.sha_file(pdf),
+                "pages": pages,
+            },
+        )
+        mpa.create_review(self.project)
+        report = mpa.machine_report(self.project)
+        incomplete = [e for e in report["errors"] if e.startswith("manual review incomplete")]
+        self.assertEqual(len(incomplete), 1)
+        self.assertEqual(len(report["review_progress"]["slides_incomplete"]), 6)
+
+    def test_interactive_qa_pending_is_not_a_command_failure(self):
+        base = [sys.executable, str(ROOT / "scripts/mpa.py"), "qa", str(self.project)]
+        interactive = subprocess.run(base, capture_output=True, text=True)
+        strict = subprocess.run(base + ["--strict-exit"], capture_output=True, text=True)
+        self.assertEqual(interactive.returncode, 0)
+        self.assertIn("QA_PENDING", interactive.stdout)
+        self.assertEqual(strict.returncode, 2)
 
     def test_sent_notice_requires_delivery_channel(self):
         mpa.compile_prompt(self.project)
