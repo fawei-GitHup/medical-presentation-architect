@@ -46,6 +46,16 @@
             "type": "string",
             "minLength": 1
           },
+          "role": {
+            "enum": ["cover", "section", "content", "evidence", "workflow", "decision", "safety", "practice", "assessment", "reference", "closing"]
+          },
+          "visual_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "continuity": {
+            "type": "string"
+          },
           "duration_seconds": {
             "type": "integer",
             "minimum": 1
@@ -61,6 +71,30 @@
           },
           "notes": {
             "type": "string"
+          },
+          "speaker_notes": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "delivery_notes": {
+                "oneOf": [
+                  {"type": "string"},
+                  {"type": "array", "items": {"type": "string", "minLength": 1}}
+                ]
+              },
+              "evidence_notes": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1}
+              },
+              "interaction": {"type": "string"},
+              "transition": {"type": "string"},
+              "local_confirmation_items": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1},
+                "uniqueItems": true
+              }
+            },
+            "required": ["delivery_notes", "evidence_notes"]
           },
           "layout_repeat_reason": {
             "type": "string"

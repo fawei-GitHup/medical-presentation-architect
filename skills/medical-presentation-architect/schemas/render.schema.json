@@ -20,6 +20,14 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
+    "contact_sheet": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contact_sheet_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "pages": {
       "type": "array",
       "items": {

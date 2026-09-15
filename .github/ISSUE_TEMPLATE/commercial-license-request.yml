@@ -1,0 +1,50 @@
+name: Commercial License Request
+description: Request written authorization for commercial use
+title: "[Commercial License Request] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Commercial use is not authorized until the copyright holder expressly issues a separate written commercial license or written authorization.
+  - type: input
+    id: applicant
+    attributes:
+      label: Applicant
+      description: Name of the person or legal entity requesting authorization.
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Intended use
+      description: Describe the commercial service, product, training, consulting, or internal workflow.
+    validations:
+      required: true
+  - type: input
+    id: deployment
+    attributes:
+      label: Deployment and users
+      description: State where it will run and the expected number of users.
+    validations:
+      required: true
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Customer deliverables
+      description: Explain whether generated presentations or related services will be delivered to customers.
+    validations:
+      required: true
+  - type: input
+    id: term
+    attributes:
+      label: Requested term
+      description: Requested start date and duration.
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand that submitting this request does not authorize commercial use.
+          required: true

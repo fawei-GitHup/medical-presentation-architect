@@ -4,12 +4,12 @@
 
 已运行/将随发布复跑的检查：
 
-- 50 项单元与工作流测试，其中 20 项覆盖访谈/通知附录场景，3 项覆盖本地界面，并包含非空素材目录保护、结构化安全字段、事务式字段更新、推断值确认、交互式 intake/QA 状态、渲染引擎自动选择、相对路径与交付顺序回归：`python -m unittest discover -s tests -v`
+- 54 项单元与工作流测试，其中 20 项覆盖访谈/通知附录场景，3 项覆盖本地界面，4 项覆盖构图去重复、讲稿净化、决策证据门禁和可打印考核页，并包含非空素材目录保护、结构化安全字段、事务式字段更新、推断值确认、交互式 intake/QA 状态、渲染引擎自动选择、相对路径与交付顺序回归：`python -m unittest discover -s tests -v`
 - Python lint：`ruff check scripts tests`
 - 集中发布完整性检查：`python scripts/release_check.py`
 - Windows PowerShell 安装/卸载脚本通过语法解析与实际 smoke test；通用安装器测试覆盖碰撞拒绝与保留用户修改；发布 ZIP 的文件清单与 SHA-256 校验通过。
 - Kimi CLI 0.36.0 本地版本/help 检查；官方文档仅用于确认 Skills 与 `--skills-dir`，没有依赖未经核实的插件安装协议。
-- 六页中文合成示例通过 Windows PowerPoint 回渲染为 PDF/逐页 PNG，手动检查全页构图；PowerPoint 原生流程/时间线、表格、图表和中文 notes 可读，机器 PPTX lint 通过。真实用户 PPTX 未公开，未打包。
+- 六页公开合成示例通过 Windows PowerPoint 回渲染为 PDF/逐页 PNG。另以 25 页医学培训测试稿验证完整节奏、语义构图、contact sheet、三页样稿选择和 publication 门禁：设计预检 0 警告，行为测试 7 项通过，PPTX lint 0 错误/0 警告，并完成 4 次 PowerPoint 全量回渲染。真实用户 PPTX 与测试素材未公开、未打包。
 - 本地界面后端只监听回环地址，拒绝目录穿越和不支持的上传类型；发布前以真实 HTTP 请求复验表单建项、资料上传和 Kimi 命令生成。
 
 限制：合成示例不含医学教学内容，不构成临床内容测试；不是所有 Office/LibreOffice 版本、字体、医院模板和宿主模型的兼容认证。Release check 验证文件/JSON schema/文档链接/安装流程/打包卫生，不会证明事实准确、图像有版权或临床审核真实发生。交付审核由具名审阅者对逐页记录负责，但本地记录并非数字签名或资质验证。

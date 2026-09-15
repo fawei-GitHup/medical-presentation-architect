@@ -10,6 +10,55 @@
         "type": "string",
         "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
       },
+      "role": {
+        "enum": [
+          "cover",
+          "section",
+          "content",
+          "evidence",
+          "workflow",
+          "decision",
+          "safety",
+          "practice",
+          "assessment",
+          "reference",
+          "closing"
+        ]
+      },
+      "composition": {
+        "type": "string",
+        "minLength": 1
+      },
+      "background": {
+        "type": "string",
+        "minLength": 1
+      },
+      "visual_anchor": {
+        "type": "string",
+        "minLength": 1
+      },
+      "reference_slides": {
+        "type": "array",
+        "items": {"type": "string", "minLength": 1},
+        "uniqueItems": true
+      },
+      "reading_order": {
+        "type": "array",
+        "items": {"type": "string", "minLength": 1},
+        "uniqueItems": true
+      },
+      "intentional_whitespace": {
+        "type": "string",
+        "minLength": 1
+      },
+      "safety": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {"enum": ["none", "low", "moderate", "high", "critical"]},
+          "requires_visible_warning": {"type": "boolean"}
+        }
+      },
       "elements": {
         "type": "array",
         "items": {
@@ -179,6 +228,64 @@
             },
             "series_name": {
               "type": "string"
+            },
+            "style": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "fill_token": {"type": "string"},
+                "text_token": {"type": "string"},
+                "border_token": {"type": "string"},
+                "font_role": {"enum": ["display", "title", "subtitle", "body", "caption", "citation", "number"]},
+                "weight": {"type": "integer", "minimum": 100, "maximum": 900},
+                "align": {"enum": ["left", "center", "right"]},
+                "vertical_align": {"enum": ["top", "middle", "bottom"]},
+                "radius": {"type": "number", "minimum": 0},
+                "emphasis": {"enum": ["none", "subtle", "strong", "critical"]}
+              }
+            },
+            "image": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "fit": {"enum": ["contain", "cover", "crop"]},
+                "focal_point": {
+                  "type": "array",
+                  "prefixItems": [
+                    {"type": "number", "minimum": 0, "maximum": 1},
+                    {"type": "number", "minimum": 0, "maximum": 1}
+                  ],
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "object_scale_group": {"type": "string", "minLength": 1},
+                "caption": {"type": "string"},
+                "show_frame": {"type": "boolean"}
+              }
+            },
+            "table_style": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "column_widths": {
+                  "type": "array",
+                  "items": {"type": "number", "exclusiveMinimum": 0}
+                },
+                "banded_rows": {"type": "boolean"},
+                "emphasis_rows": {
+                  "type": "array",
+                  "items": {"type": "integer", "minimum": 0},
+                  "uniqueItems": true
+                }
+              }
+            },
+            "safety": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "severity": {"enum": ["none", "low", "moderate", "high", "critical"]},
+                "requires_visible_warning": {"type": "boolean"}
+              }
             }
           },
           "required": [

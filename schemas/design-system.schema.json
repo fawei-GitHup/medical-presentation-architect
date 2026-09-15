@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:design-system",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quality_target", "fonts", "colors", "grid", "compositions", "risk_treatment", "image_strategy"],
+  "properties": {
+    "quality_target": {"enum": ["publication", "engineering_draft", "custom"]},
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "fallback", "minimum_body_pt"],
+      "properties": {
+        "primary": {"type": "string", "minLength": 1},
+        "fallback": {"type": "string", "minLength": 1},
+        "minimum_body_pt": {"type": "number", "minimum": 12}
+      }
+    },
+    "colors": {
+      "type": "object",
+      "minProperties": 5,
+      "additionalProperties": {"type": "string", "pattern": "^#[A-Fa-f0-9]{6}$"}
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["margin_x", "margin_y", "content_top", "content_bottom"],
+      "properties": {
+        "margin_x": {"type": "number", "minimum": 0},
+        "margin_y": {"type": "number", "minimum": 0},
+        "content_top": {"type": "number", "minimum": 0},
+        "content_bottom": {"type": "number", "minimum": 0}
+      }
+    },
+    "compositions": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 4, "uniqueItems": true},
+    "risk_treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warning_token", "requires_text_label"],
+      "properties": {
+        "warning_token": {"type": "string", "minLength": 1},
+        "requires_text_label": {"type": "boolean"}
+      }
+    },
+    "image_strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_fit", "decorative_fit", "minimum_evidence_area_ratio"],
+      "properties": {
+        "evidence_fit": {"enum": ["contain", "cover", "crop"]},
+        "decorative_fit": {"enum": ["contain", "cover", "crop"]},
+        "minimum_evidence_area_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "reference_source": {"type": "string"},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

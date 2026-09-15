@@ -12,7 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 NAME = "medical-presentation-architect"
 PAYLOAD = [
     "SKILL.md",
+    "README.md",
+    "VERSION",
     "LICENSE",
+    "NOTICE",
+    "COMMERCIAL-LICENSING.md",
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md",
     "prompts",
     "rules",
     "workflows",
@@ -92,6 +98,40 @@ def install(agent, parent):
         print("Start a new Codex session and invoke $medical-presentation-architect")
 
 
+def update(agent, parent):
+    dest = parent / NAME
+    state_path = dest / ".mpa-install.json"
+    if not state_path.is_file():
+        raise FileNotFoundError(f"No managed installation manifest found at {state_path}; refusing an unmanaged overwrite")
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    if state.get("format") != "mpa-install-v1" or (agent != "auto" and state.get("agent") != agent):
+        raise ValueError("Install manifest does not match requested agent")
+    old_files = state.get("files", {})
+    sources = files_to_copy()
+    for src in sources:
+        rel = src.relative_to(ROOT).as_posix()
+        target = dest / rel
+        if target.is_file() and rel in old_files and digest(target) != old_files[rel] and digest(target) != digest(src):
+            raise RuntimeError(f"Refusing to overwrite a locally modified managed file: {rel}")
+        if target.exists() and rel not in old_files and (not target.is_file() or digest(target) != digest(src)):
+            raise RuntimeError(f"Refusing to overwrite an unmanaged path: {rel}")
+    copied = {}
+    for src in sources:
+        rel = src.relative_to(ROOT)
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target)
+        copied[rel.as_posix()] = digest(target)
+    new_state = {
+        "format": "mpa-install-v1",
+        "agent": state.get("agent", agent),
+        "source_version": (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
+        "files": copied,
+    }
+    state_path.write_text(json.dumps(new_state, indent=2) + "\n", encoding="utf-8")
+    print(f"Updated {NAME} for {new_state['agent']}: {dest} -> {new_state['source_version']}")
+
+
 def uninstall(agent, parent):
     dest = parent / NAME
     state_path = dest / ".mpa-install.json"
@@ -131,7 +171,7 @@ def uninstall(agent, parent):
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="action", required=True)
-    for action in ("install", "uninstall"):
+    for action in ("install", "update", "uninstall"):
         p = sub.add_parser(action)
         p.add_argument("--agent", choices=["kimi", "claude", "codex", "generic", "auto"], default="kimi")
         p.add_argument("--target")
@@ -142,6 +182,8 @@ def main():
     parent = target_parent("kimi" if agent == "auto" else agent, a.target)
     if a.action == "install":
         install(agent, parent)
+    elif a.action == "update":
+        update(agent, parent)
     else:
         uninstall(agent, parent)
 

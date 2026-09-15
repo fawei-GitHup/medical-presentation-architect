@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Run deterministic repository, schema, link, install and ZIP-safety checks."""
+"""Validate the source-available skill repository and sanitized release ZIP."""
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -17,24 +18,15 @@ REQUIRED = [
     "SKILL.md",
     "README.md",
     "LICENSE",
+    "NOTICE",
+    "COMMERCIAL-LICENSING.md",
+    "THIRD-PARTY-NOTICES.md",
     "VERSION",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
-    "prompts/intake.md",
-    "prompts/master.md",
-    "rules/evidence-policy.md",
-    "rules/language.md",
-    "rules/medical-integrity.md",
-    "workflows/research.md",
-    "workflows/export.md",
-    "schemas/design-brief.schema.json",
-    "schemas/user-notice.schema.json",
-    "scripts/mpa.py",
-    "scripts/install.py",
-    "scripts/package.py",
-    "scripts/pptx_lint.py",
-    "scripts/release_check.py",
-    "scripts/ui_server.py",
+    ".gitignore",
+    ".gitattributes",
+    ".github/ISSUE_TEMPLATE/commercial-license-request.yml",
     "tests/test_workflow.py",
     "examples/demo/slide-plan.json",
     "install.sh",
@@ -48,52 +40,66 @@ REQUIRED = [
     "plugin/manifest.json",
     ".codex-plugin/plugin.json",
     ".claude-plugin/plugin.json",
-    "adapters/kimi-cli/README.md",
-    "adapters/claude-code/README.md",
-    "adapters/codex/README.md",
     "docs/usage.md",
     "docs/kimi-cli.md",
     "docs/claude-code.md",
     "docs/codex.md",
     "docs/validation.md",
     "docs/input-audit.md",
+    "docs/release.md",
+    "docs/github.md",
+    "prompts/adaptive-intake.md",
+    "prompts/intake.md",
+    "prompts/master.md",
+    "rules/evidence-policy.md",
+    "rules/failure-gates.md",
+    "rules/image-policy.md",
+    "rules/language.md",
+    "rules/layout.md",
+    "rules/medical-integrity.md",
+    "rules/privacy.md",
+    "rules/visual-policy.md",
+    "workflows/source-design-audit.md",
+    "workflows/design-system.md",
+    "workflows/prototype.md",
+    "workflows/visual-planning.md",
+    "workflows/build.md",
+    "workflows/render.md",
+    "workflows/qa.md",
+    "workflows/export.md",
+    "schemas/design-brief.schema.json",
+    "schemas/design-fingerprint.schema.json",
+    "schemas/design-system.schema.json",
+    "schemas/prototype-approval.schema.json",
+    "schemas/visual-plan.schema.json",
+    "scripts/mpa.py",
+    "scripts/design_audit.py",
+    "scripts/design_quality.py",
+    "scripts/install.py",
+    "scripts/package.py",
+    "scripts/pptx_lint.py",
+    "scripts/release_check.py",
+    "adapters/kimi-cli/README.md",
+    "adapters/claude-code/README.md",
+    "adapters/codex/README.md",
     "ui/index.html",
     "ui/styles.css",
     "ui/app.js",
     "ui/README.md",
 ]
 FORBIDDEN_SUFFIXES = {
-    ".pptx",
-    ".potx",
-    ".docx",
-    ".pdf",
-    ".xlsx",
-    ".xls",
-    ".db",
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".tif",
-    ".tiff",
-    ".svg",
-    ".mp4",
-    ".mov",
-    ".mp3",
-    ".wav",
-    ".ttf",
-    ".otf",
-    ".zip",
+    ".pptx", ".potx", ".docx", ".pdf", ".xlsx", ".xls", ".db",
+    ".dcm", ".nii", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    ".tif", ".tiff", ".svg", ".mp4", ".mov", ".mp3", ".wav",
+    ".ttf", ".otf", ".zip",
 }
+IGNORED_PARTS = {"skills", ".git", ".venv", "__pycache__"}
 
 
 def check_links():
     errors = []
-    import re
-
     for md in ROOT.rglob("*.md"):
-        if any(part in {"skills", ".git"} for part in md.relative_to(ROOT).parts[:-1]):
+        if any(part in IGNORED_PARTS for part in md.relative_to(ROOT).parts):
             continue
         text = md.read_text(encoding="utf-8")
         for target in re.findall(r"(?<!!)\[[^\]]*\]\(([^)]+)\)", text):
@@ -111,48 +117,77 @@ def check_links():
     return errors
 
 
+def check_license():
+    errors = []
+    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8") if (ROOT / "LICENSE").is_file() else ""
+    notice = (ROOT / "NOTICE").read_text(encoding="utf-8") if (ROOT / "NOTICE").is_file() else ""
+    commercial = (ROOT / "COMMERCIAL-LICENSING.md").read_text(encoding="utf-8") if (ROOT / "COMMERCIAL-LICENSING.md").is_file() else ""
+    if "MIT License" in license_text or "sublicense, and/or sell" in license_text:
+        errors.append("LICENSE still contains MIT commercial-use permission")
+    for required in (
+        "Non-Commercial License",
+        "Commercial Use Requires Prior Written Authorization",
+        "for-profit company",
+        "paid services",
+    ):
+        if required not in license_text:
+            errors.append(f"LICENSE missing commercial-control term: {required}")
+    if "fawei-GitHup" not in notice:
+        errors.append("NOTICE does not identify the copyright holder")
+    if "Commercial License Request" not in commercial:
+        errors.append("commercial licensing request path is missing")
+    return errors
+
+
 def main():
     errors = [f"missing required file: {name}" for name in REQUIRED if not (ROOT / name).is_file()]
+    errors.extend(check_links())
+    errors.extend(check_license())
+
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else ""
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        errors.append(f"invalid VERSION: {version!r}")
+
     for path in ROOT.rglob("*.json"):
-        if any(x in {"__pycache__", ".git", ".venv"} for x in path.parts):
+        if any(part in IGNORED_PARTS for part in path.relative_to(ROOT).parts):
             continue
         try:
             json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
             errors.append(f"invalid JSON {path.relative_to(ROOT)}: {exc}")
-    errors.extend(check_links())
+
     for path in list((ROOT / "scripts").glob("*.py")) + list((ROOT / "tests").glob("*.py")):
         try:
             compile(path.read_text(encoding="utf-8"), str(path), "exec")
         except (SyntaxError, UnicodeDecodeError) as exc:
             errors.append(str(exc))
+
     try:
         from jsonschema import Draft202012Validator
 
         for schema in (ROOT / "schemas").glob("*.schema.json"):
             Draft202012Validator.check_schema(json.loads(schema.read_text(encoding="utf-8")))
     except ImportError:
-        errors.append("jsonschema missing; install requirements.txt before release check")
+        errors.append("jsonschema missing; install it before running a release check")
     except Exception as exc:
         errors.append(f"invalid JSON schema: {exc}")
 
     with tempfile.TemporaryDirectory(prefix="mpa-release-") as td:
-        target = Path(td) / "skills"
-        py = sys.executable
+        temp_root = Path(td)
+        target = temp_root / "skills"
         try:
             subprocess.run(
-                [py, str(ROOT / "scripts/install.py"), "install", "--agent", "generic", "--target", str(target)],
+                [sys.executable, str(ROOT / "scripts/install.py"), "install", "--agent", "generic", "--target", str(target)],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             skill = target / "medical-presentation-architect"
-            if not (skill / "SKILL.md").is_file():
-                errors.append("installer smoke test did not place SKILL.md")
-            if not (skill / "ui/index.html").is_file() or not (skill / "scripts/ui_server.py").is_file():
-                errors.append("installer smoke test did not place the local UI")
+            for rel in ("SKILL.md", "README.md", "LICENSE", "NOTICE", "COMMERCIAL-LICENSING.md", "scripts/mpa.py", "ui/index.html"):
+                if not (skill / rel).is_file():
+                    errors.append(f"installer smoke test did not place {rel}")
             subprocess.run(
-                [py, str(ROOT / "scripts/install.py"), "uninstall", "--agent", "generic", "--target", str(target)],
+                [sys.executable, str(ROOT / "scripts/install.py"), "uninstall", "--agent", "generic", "--target", str(target)],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -161,16 +196,19 @@ def main():
                 errors.append("installer smoke test did not clean unchanged files")
         except subprocess.CalledProcessError as exc:
             errors.append(f"installer smoke test failed: {exc.stderr or exc.stdout}")
-        archive = Path(td) / "release.zip"
+
+        archive = temp_root / "release.zip"
         try:
             subprocess.run(
-                [py, str(ROOT / "scripts/package.py"), "--output", str(archive)],
+                [sys.executable, str(ROOT / "scripts/package.py"), "--output", str(archive)],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             with zipfile.ZipFile(archive) as z:
                 names = z.namelist()
+                prefix = f"medical-presentation-architect-{version}"
+                manifest_name = f"{prefix}/MANIFEST.sha256.json"
                 if len(names) != len(set(names)):
                     errors.append("ZIP contains duplicate entries")
                 for name in names:
@@ -179,17 +217,28 @@ def main():
                         errors.append(f"unsafe ZIP path: {name}")
                     if p.suffix.lower() in FORBIDDEN_SUFFIXES:
                         errors.append(f"clinical/document binary should not ship: {name}")
-                    if any(x in {"private", "projects", "work", ".git"} for x in p.parts):
-                        errors.append(f"private workspace path in ZIP: {name}")
-                if not any(name.endswith("/skills/medical-presentation-architect/SKILL.md") for name in names):
-                    errors.append("ZIP is missing the synchronized Codex skill payload")
-                prefix = f"medical-presentation-architect-{(ROOT / 'VERSION').read_text(encoding='utf-8').strip()}"
-                manifest_name = f"{prefix}/MANIFEST.sha256.json"
+                    if any(part in {"private", "projects", "work", ".git"} for part in p.parts):
+                        errors.append(f"private path in ZIP: {name}")
+                for rel in ("SKILL.md", "README.md", "LICENSE", "NOTICE", "COMMERCIAL-LICENSING.md"):
+                    if f"{prefix}/{rel}" not in names:
+                        errors.append(f"ZIP is missing {rel}")
+                for rel in (
+                    "SKILL.md",
+                    "README.md",
+                    "LICENSE",
+                    "NOTICE",
+                    "COMMERCIAL-LICENSING.md",
+                    "schemas/design-system.schema.json",
+                    "workflows/prototype.md",
+                ):
+                    generated = f"{prefix}/skills/medical-presentation-architect/{rel}"
+                    if generated not in names:
+                        errors.append(f"ZIP is missing synchronized Codex skill file: {rel}")
                 if manifest_name not in names:
                     errors.append("ZIP has no SHA-256 manifest")
                 else:
                     manifest = json.loads(z.read(manifest_name))
-                    archived = {Path(n).relative_to(prefix).as_posix() for n in names if n != manifest_name}
+                    archived = {Path(name).relative_to(prefix).as_posix() for name in names if name != manifest_name}
                     if set(manifest) != archived:
                         errors.append("ZIP manifest does not enumerate every other archive file")
                     for rel, expected in manifest.items():
@@ -200,11 +249,10 @@ def main():
 
     if errors:
         print("Release check FAILED")
-        print("\n".join(f"- {e}" for e in errors))
+        print("\n".join(f"- {error}" for error in errors))
         return 1
-    print(
-        "Release check passed: required files, local documentation links, JSON/schema validity, Python compilation, installer smoke test and sanitized ZIP."
-    )
+
+    print("Release check passed: repository structure, non-commercial license controls, links, JSON schemas, Python syntax, installer, and sanitized ZIP.")
     return 0
 
 

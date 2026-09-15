@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mpa:design-fingerprint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source", "slide_size", "fonts", "colors", "representative_slides", "preserve", "repair"],
+  "properties": {
+    "source": {"type": "string", "minLength": 1},
+    "slide_size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "fonts": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "colors": {"type": "array", "items": {"type": "string", "pattern": "^#[A-Fa-f0-9]{6}$"}, "uniqueItems": true},
+    "representative_slides": {
+      "type": "object",
+      "additionalProperties": {"type": "array", "items": {"type": "integer", "minimum": 1}}
+    },
+    "composition_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "preserve": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "repair": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "observations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

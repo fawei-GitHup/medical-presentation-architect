@@ -27,6 +27,35 @@
         "approved"
       ]
     },
+    "reviews": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visual", "clinical"],
+      "properties": {
+        "visual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewer", "role", "reviewed_at", "status"],
+          "properties": {
+            "reviewer": {"type": "string"},
+            "role": {"enum": ["pending", "designer", "presentation_reviewer"]},
+            "reviewed_at": {"type": "string"},
+            "status": {"enum": ["pending", "approved"]}
+          }
+        },
+        "clinical": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewer", "role", "reviewed_at", "status"],
+          "properties": {
+            "reviewer": {"type": "string"},
+            "role": {"enum": ["pending", "clinical_expert"]},
+            "reviewed_at": {"type": "string"},
+            "status": {"enum": ["pending", "approved"]}
+          }
+        }
+      }
+    },
     "slides": {
       "type": "array",
       "items": {
@@ -66,8 +95,7 @@
             ]
           },
           "findings": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
@@ -86,13 +114,9 @@
       }
     }
   },
-  "required": [
-    "fingerprint",
-    "reviewer",
-    "role",
-    "reviewed_at",
-    "status",
-    "slides",
-    "warning_resolutions"
+  "required": ["fingerprint", "slides", "warning_resolutions"],
+  "oneOf": [
+    {"required": ["reviews"]},
+    {"required": ["reviewer", "role", "reviewed_at", "status"]}
   ]
 }

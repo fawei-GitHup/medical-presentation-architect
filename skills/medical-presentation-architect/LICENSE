@@ -1,21 +1,99 @@
-MIT License
+Medical Presentation Architect Non-Commercial License 1.0
 
-Copyright (c) 2026 medical-presentation-architect contributors
+Copyright (c) 2026 fawei-GitHup. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Acceptance
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+By copying, installing, using, modifying, or distributing any part of the
+Software, you accept this License. If you do not accept it, you receive no
+rights under this License.
+
+2. Definitions
+
+"Software" means the Medical Presentation Architect source code,
+instructions, workflows, schemas, user interface, documentation, and other
+materials distributed with this License.
+
+"Licensor" means the copyright holder identified in the copyright notice.
+
+"Non-Commercial Use" means use that is not primarily intended for or directed
+toward commercial advantage, business operations, or monetary compensation.
+
+"Commercial Use" includes, without limitation:
+
+- using the Software to deliver paid services, consulting, training, design,
+  clinical, publishing, or presentation work;
+- using the Software within or for a for-profit company or other commercial
+  organization, including internal business use;
+- incorporating the Software into a paid product, subscription, hosted
+  service, managed service, or commercial workflow;
+- selling, licensing, sublicensing, renting, or charging for access to the
+  Software or a substantial part of it; and
+- using the Software to obtain commercial advantage or revenue, whether the
+  charge is made for the Software itself or for a related deliverable.
+
+3. Non-Commercial License Grant
+
+Subject to this License, the Licensor grants you a limited, worldwide,
+non-exclusive, non-transferable, royalty-free license to use, copy, and modify
+the Software solely for Non-Commercial Use. You may distribute copies or
+modified versions solely for Non-Commercial Use if you:
+
+- include this License and the NOTICE file;
+- clearly identify material changes you made;
+- do not remove copyright, attribution, or license notices; and
+- do not state or imply endorsement by the Licensor.
+
+4. Commercial Use Requires Prior Written Authorization
+
+No Commercial Use is granted by this License. Before any Commercial Use, you
+must obtain a separate written commercial license or other express written
+authorization from the Licensor. Payment, attribution, publication of source
+code, or possession of a copy does not by itself authorize Commercial Use.
+
+5. No Sublicensing or Transfer
+
+You may not sublicense or transfer rights granted under this License. The
+Licensor may offer separate licenses to others on different terms.
+
+6. Third-Party Materials
+
+This License applies only to rights the Licensor can grant. It does not grant
+rights to third-party presentations, clinical materials, patient information,
+images, fonts, trademarks, research papers, guidelines, software, or other
+content. You are responsible for obtaining all required permissions and for
+complying with applicable privacy, medical, institutional, and professional
+requirements.
+
+7. No Trademark License
+
+This License does not grant permission to use the Licensor's names, account
+names, project names, logos, or trademarks except as reasonably necessary to
+describe the origin of the Software and reproduce required notices.
+
+8. Compliance and Termination
+
+Your rights under this License terminate automatically when you breach any
+term. For a first breach, your rights may be reinstated if you stop the breach,
+correct its effects where practicable, and provide written confirmation of
+compliance within 30 days after receiving written notice from the Licensor.
+This cure does not prevent the Licensor from pursuing remedies for past breach.
+
+9. Disclaimer of Warranty
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, AND NON-INFRINGEMENT. THE SOFTWARE DOES NOT PROVIDE MEDICAL,
+LEGAL, OR OTHER PROFESSIONAL ADVICE AND IS NOT A MEDICAL DEVICE.
+
+10. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR WILL NOT BE LIABLE FOR ANY
+CLAIM, LOSS, OR DAMAGES ARISING FROM THE SOFTWARE OR ITS USE, UNDER ANY THEORY
+OF LIABILITY, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+11. Other Rights
+
+Fair use, fair dealing, and other rights that apply independently of this
+License are not restricted. No rights are granted except those expressly
+stated in this License.

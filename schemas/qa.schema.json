@@ -8,11 +8,12 @@
       "type": "boolean"
     },
     "status": {
-      "enum": ["draft", "needs_evidence", "needs_visual_review", "needs_clinical_review", "needs_privacy_review", "release_ready"]
+      "enum": ["draft", "needs_evidence", "needs_visual_review", "needs_clinical_review", "needs_privacy_review", "needs_user_notice", "release_ready"]
     },
     "fingerprint": {
       "type": "string"
     },
+    "summary": {"type": "string"},
     "errors": {
       "type": "array",
       "items": {
@@ -50,7 +51,9 @@
     "generated_at": {
       "type": "string",
       "format": "date-time"
-    }
+    },
+    "review_progress": {"type": "object", "additionalProperties": true},
+    "next_actions": {"type": "array", "items": {"type": "string"}}
   },
   "required": [
     "passed",

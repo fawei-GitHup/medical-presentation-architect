@@ -15,6 +15,16 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from design_quality import (
+    build_contact_sheet,
+    enrich_visual_plan,
+    infer_composition,
+    infer_slide_role,
+    run_design_quality_checks,
+    split_speaker_and_evidence_notes,
+)
+from design_audit import audit_pptx_design
+
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = ("topic", "audience", "learning_outcomes", "purpose", "network_policy", "privacy_constraints", "deliverables")
@@ -476,6 +486,24 @@ def schema_errors(project):
                 errors += [f"{file} {e}" for e in schema_validate(sn, read_json(p))]
             except (json.JSONDecodeError, OSError, ValueError) as e:
                 errors.append(f"{file}: {e}")
+    for file, sn in (
+        ("design-fingerprint.json", "design-fingerprint"),
+        ("design-system.json", "design-system"),
+        ("prototype/approval.json", "prototype-approval"),
+    ):
+        p = project / file
+        if p.exists():
+            try:
+                errors += [f"{file} {e}" for e in schema_validate(sn, read_json(p))]
+            except (json.JSONDecodeError, OSError, ValueError) as e:
+                errors.append(f"{file}: {e}")
+    for file, sn in (("review.json", "review"), ("render/render.json", "render"), ("qa_report.json", "qa")):
+        p = project / file
+        if p.exists():
+            try:
+                errors += [f"{file} {e}" for e in schema_validate(sn, read_json(p))]
+            except (json.JSONDecodeError, OSError, ValueError) as e:
+                errors.append(f"{file}: {e}")
     return list(dict.fromkeys(errors))
 
 
@@ -630,6 +658,9 @@ def project_fingerprint(project):
         "sources.json",
         "claims.json",
         "assets.json",
+        "design-fingerprint.json",
+        "design-system.json",
+        "prototype/approval.json",
         "slide-plan.json",
         "visual-plan.json",
         "build/draft.pptx",
@@ -651,7 +682,9 @@ def project_fingerprint(project):
 
 
 def warnings_for(project, plan, visual):
-    warnings, seen_layout, seen_asset = [], {}, {}
+    claims = read_json(project / "claims.json") if (project / "claims.json").exists() else []
+    design_report = run_design_quality_checks(plan, visual, claims)
+    warnings, seen_asset = list(design_report["warnings"]), {}
     for group in visual:
         sid = group["slide_id"]
         imgs = [e for e in group["elements"] if e["type"] == "image"]
@@ -662,31 +695,10 @@ def warnings_for(project, plan, visual):
                     "message": f"slide {sid}: {len(imgs)} images; check purpose, size and clutter",
                 }
             )
-        sig = tuple(sorted(e["type"] for e in group["elements"]))
-        seen_layout.setdefault(sig, []).append(sid)
         for e in imgs:
             aid = e.get("asset_id")
             if aid:
                 seen_asset.setdefault(aid, []).append(sid)
-        density = sum(len(e.get("text", "")) for e in group["elements"] if e["type"] == "text")
-        if density > 700:
-            warnings.append(
-                {
-                    "id": f"dense:{sid}",
-                    "message": f"slide {sid}: {density} text characters; split or move detail to notes",
-                }
-            )
-    for sig, ids_ in seen_layout.items():
-        if len(ids_) >= 4:
-            for sid in ids_:
-                slide = next((s for s in plan["slides"] if s["id"] == sid), {})
-                if not slide.get("layout_repeat_reason"):
-                    warnings.append(
-                        {
-                            "id": f"repeated-layout:{sid}",
-                            "message": f"layout pattern repeats on {len(ids_)} slides; examine whether the repetition serves teaching",
-                        }
-                    )
     for aid, ids_ in seen_asset.items():
         if len(ids_) > 1:
             warnings.append(
@@ -698,8 +710,57 @@ def warnings_for(project, plan, visual):
     return warnings
 
 
+def design_preflight(project):
+    plan = read_json(project / "slide-plan.json")
+    visual = read_json(project / "visual-plan.json")
+    claims = read_json(project / "claims.json") if (project / "claims.json").exists() else []
+    report = run_design_quality_checks(plan, visual, claims)
+    report["generated_at"] = now()
+    report["quality_target"] = (
+        read_json(project / "design-system.json").get("quality_target")
+        if (project / "design-system.json").exists()
+        else "engineering_draft"
+    )
+    write_json(project / "qa/design_preflight.json", report)
+    return report
+
+
+def publication_gate_errors(project):
+    system_path = project / "design-system.json"
+    if not system_path.exists():
+        return []
+    system = read_json(system_path)
+    if system.get("quality_target") != "publication":
+        return []
+    errors = []
+    fingerprint_path = project / "design-fingerprint.json"
+    if system.get("reference_source") and not fingerprint_path.exists():
+        errors.append("publication project references an existing design but design-fingerprint.json is missing")
+    approval_path = project / "prototype/approval.json"
+    if not approval_path.exists():
+        errors.append("publication project requires a reviewed three-slide prototype")
+        return errors
+    approval = read_json(approval_path)
+    if approval.get("status") != "approved" or not str(approval.get("reviewer", "")).strip():
+        errors.append("publication prototype is not approved by a named reviewer")
+    expected_system = sha_file(system_path)
+    if approval.get("design_system_sha256") != expected_system:
+        errors.append("prototype approval is stale relative to design-system.json")
+    expected_fingerprint = sha_file(fingerprint_path) if fingerprint_path.exists() else None
+    if approval.get("design_fingerprint_sha256") != expected_fingerprint:
+        errors.append("prototype approval is stale relative to design-fingerprint.json")
+    if approval.get("slide_plan_sha256") != sha_file(project / "slide-plan.json"):
+        errors.append("prototype approval is stale relative to slide-plan.json")
+    if approval.get("visual_plan_sha256") != sha_file(project / "visual-plan.json"):
+        errors.append("prototype approval is stale relative to visual-plan.json")
+    prototype_render = project / "prototype/render/render.json"
+    if not prototype_render.exists():
+        errors.append("publication prototype has not been rendered for visual review")
+    return errors
+
+
 def machine_report(project):
-    errors = schema_errors(project) + cross_errors(project)
+    errors = schema_errors(project) + cross_errors(project) + publication_gate_errors(project)
     brief = read_json(project / "intake/design_brief.json")
     plan_path, visual_path = project / "slide-plan.json", project / "visual-plan.json"
     plan = read_json(plan_path) if plan_path.exists() else {"slides": []}
@@ -739,6 +800,15 @@ def machine_report(project):
                 q = project / p["path"]
                 if not q.is_file() or sha_file(q) != p["sha256"]:
                     errors.append(f"render page missing or changed: {p['path']}")
+            contact = render.get("contact_sheet")
+            if not contact:
+                errors.append("contact sheet missing; deck-level rhythm has not been reviewed")
+            else:
+                contact_path = (project / contact).resolve()
+                if project.resolve() not in contact_path.parents:
+                    errors.append("contact sheet path escapes the project")
+                elif not contact_path.is_file() or sha_file(contact_path) != render.get("contact_sheet_sha256"):
+                    errors.append("contact sheet is missing or stale")
         except Exception as e:
             errors.append(f"invalid render manifest: {e}")
     # Every slide/element medical assertion must bind to a claim. Clinical status cannot be self-declared away.
@@ -774,6 +844,10 @@ def machine_report(project):
         "reviewer": "",
         "role": "pending",
         "status": "pending",
+        "reviews": {
+            "visual": {"reviewer": "", "role": "pending", "reviewed_at": "", "status": "pending"},
+            "clinical": {"reviewer": "", "role": "pending", "reviewed_at": "", "status": "pending"},
+        },
         "slide_total": len(plan["slides"]),
         "slides_complete": [],
         "slides_incomplete": [slide["id"] for slide in plan["slides"]],
@@ -787,27 +861,39 @@ def machine_report(project):
         review = read_json(review_path)
         current = project_fingerprint(project)
         fingerprint_current = review.get("fingerprint") == current
-        review_progress.update(
-            fingerprint_current=fingerprint_current,
-            reviewer=review.get("reviewer", ""),
-            role=review.get("role", "pending"),
-            status=review.get("status", "pending"),
-        )
+        dual_reviews = review.get("reviews")
+        if dual_reviews:
+            visual_review = dual_reviews.get("visual", {})
+            clinical_review = dual_reviews.get("clinical", {})
+            review_progress.update(fingerprint_current=fingerprint_current, reviews=dual_reviews)
+        else:
+            visual_review = review
+            clinical_review = review
+            review_progress.update(
+                fingerprint_current=fingerprint_current,
+                reviewer=review.get("reviewer", ""),
+                role=review.get("role", "pending"),
+                status=review.get("status", "pending"),
+            )
         if not fingerprint_current:
             errors.append("manual review fingerprint stale; inspect all updated pages and review again")
         if (
-            review.get("status") != "approved"
-            or review.get("reviewer") in (None, "", "pending")
-            or review.get("role") == "pending"
+            visual_review.get("status") != "approved"
+            or visual_review.get("reviewer") in (None, "", "pending")
+            or visual_review.get("role") not in {"designer", "presentation_reviewer"}
         ):
-            errors.append("manual review is not approved by a named reviewer")
+            errors.append("visual review is not approved by a named presentation reviewer")
         clinical_claims = {
             c["id"]
             for c in read_json(project / "claims.json")
             if c.get("kind") in ("clinical", "numeric", "guideline", "device")
         }
-        if clinical_claims and review.get("role") != "clinical_expert":
-            errors.append("clinical content requires a named clinical expert review")
+        if clinical_claims and (
+            clinical_review.get("status") != "approved"
+            or clinical_review.get("reviewer") in (None, "", "pending")
+            or clinical_review.get("role") != "clinical_expert"
+        ):
+            errors.append("clinical review is not approved by a named clinical expert")
         got = {x.get("slide_id"): x for x in review.get("slides", [])}
         complete_ids = []
         incomplete_ids = []
@@ -834,7 +920,9 @@ def machine_report(project):
             )
     if not errors:
         status = "release_ready"
-    elif not render_path.exists() or any("render" in e or "review" in e for e in errors):
+    elif any("clinical review" in e or "clinical expert" in e for e in errors):
+        status = "needs_clinical_review"
+    elif not render_path.exists() or any("render" in e or "visual review" in e or "manual review" in e for e in errors):
         status = "needs_visual_review"
     elif any("asset" in e or "privacy" in e or "consent" in e or "license" in e for e in errors):
         status = "needs_privacy_review"
@@ -852,9 +940,9 @@ def machine_report(project):
             f"{len(review_progress['warnings_unresolved'])} 个 warning 尚未处理。"
         )
         next_actions = [
-            "逐页查看 render/pages 中的 PNG，并在 review.json 完成 visual、medical、citations、privacy、notes 五项。",
+            "先查看 contact sheet，再逐页查看 render/pages 中的 PNG；在 review.json 完成 visual、medical、citations、privacy、notes 五项。",
             "每个 warning 必须修改页面或在 warning_resolutions 中写明具体理由。",
-            "医学内容须由真实且可追责的临床专家填写 reviewer、role=clinical_expert、reviewed_at 和 status=approved。",
+            "分别完成 reviews.visual 与 reviews.clinical；医学内容须由真实且可追责的临床专家填写 clinical_expert、reviewed_at 和 approved。",
             "完成后重新运行 qa；QA 通过前不要准备或登记交付通知。",
         ]
     elif not review_path.exists():
@@ -883,98 +971,277 @@ def to_inches(value, inches):
     return Inches(value if value is not None else inches)
 
 
-def build_pptx(project):
+def build_pptx(project, slide_ids=None, output_path=None):
     from pptx import Presentation
     from pptx.chart.data import CategoryChartData
     from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION
     from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
     from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
     from pptx.dml.color import RGBColor
+    from pptx.util import Inches, Pt
 
     plan = read_json(project / "slide-plan.json")
     visual = read_json(project / "visual-plan.json")
+    if slide_ids:
+        wanted = list(dict.fromkeys(slide_ids))
+        available = {slide["id"] for slide in plan["slides"]}
+        missing = [slide_id for slide_id in wanted if slide_id not in available]
+        if missing:
+            raise ValueError("Unknown prototype slide IDs: " + ", ".join(missing))
+        plan = {**plan, "slides": [slide for slide in plan["slides"] if slide["id"] in wanted]}
+        visual = [group for group in visual if group["slide_id"] in wanted]
     assets = {x["id"]: x for x in read_json(project / "assets.json")}
     claims = {x["id"]: x for x in read_json(project / "claims.json")}
     sources = {x["id"]: x for x in read_json(project / "sources.json")}
+    design_system = read_json(project / "design-system.json") if (project / "design-system.json").exists() else {}
     prs = Presentation()
     prs.slide_width, prs.slide_height = (
         to_inches(None, plan.get("width", 13.333)),
         to_inches(None, plan.get("height", 7.5)),
     )
     blank = prs.slide_layouts[6]
-    palette = {
-        "ink": RGBColor(29, 43, 54),
-        "muted": RGBColor(87, 105, 117),
-        "accent": RGBColor(0, 112, 115),
-        "pale": RGBColor(232, 242, 240),
-        "white": RGBColor(255, 255, 255),
-        "line": RGBColor(152, 175, 177),
+    default_colors = {
+        "ink": "#1D2B36",
+        "muted": "#576975",
+        "accent": "#007073",
+        "accent_2": "#34A4A1",
+        "pale": "#E8F2F0",
+        "paper": "#F8FAF9",
+        "white": "#FFFFFF",
+        "line": "#98AFB1",
+        "warning": "#C9483B",
+        "warning_pale": "#FCEDEA",
     }
-    vismap = {x["slide_id"]: x["elements"] for x in visual}
+    default_colors.update(design_system.get("colors", {}))
+
+    def rgb(value):
+        value = default_colors.get(value, value)
+        if not isinstance(value, str) or not re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+            value = default_colors["ink"]
+        return RGBColor.from_string(value[1:])
+
+    palette = {key: rgb(key) for key in default_colors}
+    font_name = design_system.get("fonts", {}).get("primary") or plan.get("font", "Arial")
+    groupmap = {x["slide_id"]: x for x in visual}
+    layout_occurrences = {}
+    notes_records = []
+
+    def add_text_shape(slide, e, x, y, w, h, role, composition):
+        style = e.get("style", {})
+        fill_token = style.get("fill_token")
+        if not fill_token and role == "safety" and re.search(r"警示|红线|停止|暴露|氢氟|\bHF\b", str(e.get("text", "")), re.I):
+            fill_token = "warning_pale"
+        if not fill_token and e["type"] in {"number", "checklist"}:
+            fill_token = "white"
+        if not fill_token and composition in {"split_editorial", "paired_boundaries", "takeaway_sequence"} and h >= Inches(1.2):
+            fill_token = "white"
+        if fill_token:
+            sh = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+            sh.fill.solid()
+            sh.fill.fore_color.rgb = rgb(fill_token)
+            border_default = "warning" if fill_token == "warning_pale" else "line"
+            sh.line.color.rgb = rgb(style.get("border_token", border_default))
+            sh.line.width = Pt(1.1)
+        else:
+            sh = slide.shapes.add_textbox(x, y, w, h)
+        tf = sh.text_frame
+        tf.clear()
+        tf.word_wrap = True
+        tf.vertical_anchor = {
+            "top": MSO_ANCHOR.TOP,
+            "middle": MSO_ANCHOR.MIDDLE,
+            "bottom": MSO_ANCHOR.BOTTOM,
+        }.get(style.get("vertical_align"), MSO_ANCHOR.MIDDLE)
+        tf.margin_left = tf.margin_right = Inches(0.09)
+        tf.margin_top = tf.margin_bottom = Inches(0.05)
+        raw_lines = str(e.get("text", "")).splitlines() or [""]
+        if e["type"] == "checklist":
+            lines = []
+            for line_index, line in enumerate(raw_lines):
+                stripped = line.strip()
+                if role == "assessment" and stripped.startswith("☑"):
+                    stripped = "□" + stripped[1:]
+                if line_index and stripped and not re.match(r"^[☐☑□✓•·]", stripped):
+                    stripped = "□ " + stripped
+                lines.append(stripped)
+        else:
+            lines = raw_lines
+        for line_index, line in enumerate(lines):
+            p = tf.paragraphs[0] if line_index == 0 else tf.add_paragraph()
+            p.text = line
+            p.font.name = font_name
+            if e["type"] == "number" and line_index == 0:
+                p.font.size = Pt(max(32, e.get("font_size", 20) + 12))
+                p.font.bold = True
+                p.font.color.rgb = rgb(style.get("text_token", "accent"))
+            elif composition == "takeaway_sequence" and line_index == 0 and re.fullmatch(r"[①②③④⑤]", line.strip()):
+                p.font.size = Pt(34)
+                p.font.bold = True
+                p.font.color.rgb = palette["accent"]
+            else:
+                p.font.size = Pt(e.get("font_size", 20))
+                compact_heading = line_index == 0 and len(line.strip()) <= 18 and len(lines) > 1
+                p.font.bold = bool(
+                    style.get("weight", 400) >= 650
+                    or (e["type"] == "checklist" and line_index == 0)
+                    or (compact_heading and composition in {"split_editorial", "paired_boundaries"})
+                )
+                fallback = "white" if role in {"cover", "section", "closing"} else "ink"
+                p.font.color.rgb = rgb(style.get("text_token", fallback))
+            p.alignment = {
+                "left": PP_ALIGN.LEFT,
+                "center": PP_ALIGN.CENTER,
+                "right": PP_ALIGN.RIGHT,
+            }.get(style.get("align"), PP_ALIGN.CENTER if role in {"cover", "closing"} else PP_ALIGN.LEFT)
+            p.space_after = Pt(7 if e["type"] == "checklist" and line_index else 3)
+        sh.name = e.get("alt", e["id"])[:240]
+        return sh
+
+    def add_picture(slide, e, x, y, w, h):
+        from PIL import Image
+
+        asset = assets[e["asset_id"]]
+        path = project / asset["path"]
+        image_style = e.get("image", {})
+        if image_style.get("show_frame", True):
+            frame = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x - Inches(0.04), y - Inches(0.04), w + Inches(0.08), h + Inches(0.08))
+            frame.fill.solid()
+            frame.fill.fore_color.rgb = palette["white"]
+            frame.line.color.rgb = palette["line"]
+        with Image.open(path) as im:
+            source_ratio = im.width / im.height
+        box_ratio = w / h
+        fit = image_style.get("fit") or design_system.get("image_strategy", {}).get("evidence_fit") or "contain"
+        if fit == "contain":
+            if source_ratio > box_ratio:
+                draw_w, draw_h = w, int(w / source_ratio)
+                draw_x, draw_y = x, int(y + (h - draw_h) / 2)
+            else:
+                draw_h, draw_w = h, int(h * source_ratio)
+                draw_x, draw_y = int(x + (w - draw_w) / 2), y
+            pic = slide.shapes.add_picture(str(path), draw_x, draw_y, width=draw_w, height=draw_h)
+        else:
+            pic = slide.shapes.add_picture(str(path), x, y, width=w, height=h)
+            focal = image_style.get("focal_point", [0.5, 0.5])
+            if source_ratio > box_ratio:
+                crop = 1 - box_ratio / source_ratio
+                pic.crop_left = max(0, min(crop, crop * float(focal[0]) * 2))
+                pic.crop_right = crop - pic.crop_left
+            elif source_ratio < box_ratio:
+                crop = 1 - source_ratio / box_ratio
+                pic.crop_top = max(0, min(crop, crop * float(focal[1]) * 2))
+                pic.crop_bottom = crop - pic.crop_top
+        pic.name = e["alt"][:240]
+        caption = image_style.get("caption")
+        if caption:
+            cap = slide.shapes.add_textbox(x, y + h - Inches(0.34), w, Inches(0.34))
+            cap.fill.solid()
+            cap.fill.fore_color.rgb = palette["ink"]
+            cap.fill.transparency = 12
+            cap.text = caption
+            cp = cap.text_frame.paragraphs[0]
+            cp.font.name, cp.font.size, cp.font.color.rgb = font_name, Pt(10), palette["white"]
+            cp.alignment = PP_ALIGN.CENTER
+        return pic
+
     for idx, item in enumerate(plan["slides"]):
+        group = groupmap.get(item["id"], {"slide_id": item["id"], "elements": []})
+        role = group.get("role") or infer_slide_role(item)
+        composition = infer_composition(item, group)
+        layout = item.get("layout", "freeform")
+        layout_occurrences[layout] = layout_occurrences.get(layout, 0) + 1
+        mirror = layout == "image_right_text_left" and (
+            composition == "image_text_split"
+            or (not group.get("composition") and layout_occurrences[layout] % 2 == 0)
+        )
         slide = prs.slides.add_slide(blank)
         bg = slide.background.fill
         bg.solid()
-        bg.fore_color.rgb = palette["white"]
-        title = slide.shapes.add_textbox(
-            to_inches(None, 0.55), to_inches(None, 0.32), to_inches(None, 12.2), to_inches(None, 0.72)
-        )
+        background_token = group.get("background") or ("ink" if role in {"cover", "section", "closing"} else "paper")
+        bg.fore_color.rgb = rgb(background_token)
+        if role == "safety" or group.get("safety", {}).get("severity") in {"high", "critical"}:
+            warning_band = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, Inches(0.14))
+            warning_band.fill.solid()
+            warning_band.fill.fore_color.rgb = palette["warning"]
+            warning_band.line.fill.background()
+            warning_label = slide.shapes.add_textbox(Inches(10.75), Inches(0.28), Inches(2.0), Inches(0.35))
+            warning_label.text = "安全警示 · 请按 IFU 与科室 SOP 核对"
+            wp = warning_label.text_frame.paragraphs[0]
+            wp.font.name, wp.font.size, wp.font.bold = font_name, Pt(10), True
+            wp.font.color.rgb = palette["warning"]
+            wp.alignment = PP_ALIGN.RIGHT
+        if role == "cover":
+            title_box = (0.85, 0.88, 11.65, 2.0)
+            title_size, title_color, title_align = 38, "white", PP_ALIGN.CENTER
+        elif role == "closing":
+            title_box = (0.85, 2.15, 11.65, 1.35)
+            title_size, title_color, title_align = 36, "white", PP_ALIGN.CENTER
+        elif role == "section":
+            title_box = (0.85, 2.2, 11.65, 1.5)
+            title_size, title_color, title_align = 34, "white", PP_ALIGN.CENTER
+        else:
+            title_box = (0.58, 0.34, 10.1, 0.72)
+            title_size, title_color, title_align = 29, "ink", PP_ALIGN.LEFT
+        title = slide.shapes.add_textbox(*(Inches(v) for v in title_box))
         title.text_frame.word_wrap = True
         p = title.text_frame.paragraphs[0]
         p.text = item["title"]
-        p.font.name = plan.get("font", "Arial")
-        p.font.size = __import__("pptx").util.Pt(30)
+        p.font.name = font_name
+        p.font.size = Pt(title_size)
         p.font.bold = True
-        p.font.color.rgb = palette["ink"]
-        # Main content respects the explicit geometry in visual-plan; unsupported types fail loudly.
-        for e in sorted(vismap.get(item["id"], []), key=lambda x: x.get("z", 0)):
-            x, y, w, h = (to_inches(e[k], 0) for k in ("x", "y", "w", "h"))
+        p.font.color.rgb = rgb(title_color)
+        p.alignment = title_align
+        if role not in {"cover", "section", "closing"}:
+            rule = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.58), Inches(1.08), Inches(0.62), Inches(0.06))
+            rule.fill.solid()
+            rule.fill.fore_color.rgb = palette["accent"]
+            rule.line.fill.background()
+            folio = slide.shapes.add_textbox(Inches(12.18), Inches(0.42), Inches(0.55), Inches(0.3))
+            folio.text = f"{idx + 1:02d}"
+            fp = folio.text_frame.paragraphs[0]
+            fp.font.name, fp.font.size, fp.font.bold = font_name, Pt(10), True
+            fp.font.color.rgb = palette["muted"]
+            fp.alignment = PP_ALIGN.RIGHT
+        # Explicit geometry remains authoritative. A legacy repeated split layout alternates once per pair.
+        for e in sorted(group.get("elements", []), key=lambda x: x.get("z", 0)):
+            ex = plan.get("width", 13.333) - e["x"] - e["w"] if mirror else e["x"]
+            x, y, w, h = (to_inches(value, 0) for value in (ex, e["y"], e["w"], e["h"]))
             typ = e["type"]
             if typ in ("text", "number", "checklist"):
-                sh = slide.shapes.add_textbox(x, y, w, h)
-                tf = sh.text_frame
-                tf.clear()
-                tf.word_wrap = True
-                tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-                tf.margin_left = tf.margin_right = __import__("pptx").util.Inches(0.06)
-                p = tf.paragraphs[0]
-                p.text = e.get("text", "")
-                p.font.name = plan.get("font", "Arial")
-                p.font.size = __import__("pptx").util.Pt(e.get("font_size", 20))
-                p.font.color.rgb = palette["ink"]
+                add_text_shape(slide, e, x, y, w, h, role, composition)
             elif typ == "image":
-                a = assets[e["asset_id"]]
-                path = project / a["path"]
-                pic = slide.shapes.add_picture(str(path), x, y, width=w, height=h)
-                # Fit inside requested region without distortion.
-                from PIL import Image
-
-                with Image.open(path) as im:
-                    ratio = im.width / im.height
-                box = w / h
-                if ratio > box:
-                    pic.height = int(w / ratio)
-                    pic.top = int(y + (h - pic.height) / 2)
-                else:
-                    pic.width = int(h * ratio)
-                    pic.left = int(x + (w - pic.width) / 2)
-                pic.name = e["alt"][:240]
+                add_picture(slide, e, x, y, w, h)
             elif typ == "table":
                 rows = e["rows"]
                 cols = max(len(r) for r in rows)
                 shape = slide.shapes.add_table(len(rows), cols, x, y, w, h)
                 tab = shape.table
+                table_style = e.get("table_style", {})
+                widths = table_style.get("column_widths", [])
+                if len(widths) == cols and sum(widths) > 0:
+                    total = sum(widths)
+                    for ci, value in enumerate(widths):
+                        tab.columns[ci].width = int(w * value / total)
                 for ri, row in enumerate(rows):
                     for ci in range(cols):
                         cell = tab.cell(ri, ci)
                         cell.text = row[ci] if ci < len(row) else ""
-                        cell.margin_left = cell.margin_right = __import__("pptx").util.Inches(0.07)
-                        cell.text_frame.paragraphs[0].font.size = __import__("pptx").util.Pt(e.get("font_size", 15))
-                        cell.text_frame.paragraphs[0].font.name = plan.get("font", "Arial")
+                        cell.margin_left = cell.margin_right = Inches(0.07)
+                        cell.margin_top = cell.margin_bottom = Inches(0.04)
+                        cell.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+                        cell.text_frame.paragraphs[0].font.size = Pt(e.get("font_size", 15))
+                        cell.text_frame.paragraphs[0].font.name = font_name
                         cell.text_frame.paragraphs[0].font.color.rgb = palette["white"] if ri == 0 else palette["ink"]
                         if ri == 0:
                             cell.fill.solid()
                             cell.fill.fore_color.rgb = palette["accent"]
+                            cell.text_frame.paragraphs[0].font.bold = True
+                        elif table_style.get("banded_rows", True) and ri % 2 == 0:
+                            cell.fill.solid()
+                            cell.fill.fore_color.rgb = palette["pale"]
+                        if ri in table_style.get("emphasis_rows", []):
+                            cell.fill.solid()
+                            cell.fill.fore_color.rgb = palette["warning_pale"]
                             cell.text_frame.paragraphs[0].font.bold = True
             elif typ == "chart":
                 data = CategoryChartData()
@@ -986,13 +1253,20 @@ def build_pptx(project):
                 chart.value_axis.has_major_gridlines = True
                 chart.plots[0].has_data_labels = True
                 chart.plots[0].data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
+                chart.plots[0].series[0].format.fill.solid()
+                chart.plots[0].series[0].format.fill.fore_color.rgb = palette["accent"]
+                chart.plots[0].series[0].format.line.color.rgb = palette["accent"]
+                chart.category_axis.tick_labels.font.name = font_name
+                chart.category_axis.tick_labels.font.size = Pt(12)
+                chart.value_axis.tick_labels.font.name = font_name
+                chart.value_axis.tick_labels.font.size = Pt(10)
             elif typ in ("flow", "timeline", "decision"):
                 nodes, edges = e["nodes"], e.get("edges", [])
                 n = len(nodes)
                 cols = min(4, n)
                 rows = (n + cols - 1) // cols
-                nw = w / cols * 0.62
-                nh = min(__import__("pptx").util.Inches(0.76), h / max(rows, 1) * 0.62)
+                nw = w / cols * 0.70
+                nh = min(Inches(1.05), h / max(rows, 1) * 0.62)
                 rects = {}
                 for node in nodes:
                     nx = x + (node["x"] * (w - nw))
@@ -1010,6 +1284,7 @@ def build_pptx(project):
                         b[1] + b[3] // 2,
                     )
                     connector.line.color.rgb = palette["muted"]
+                    connector.line.width = Pt(1.5)
                 for ni, node in enumerate(nodes):
                     nx, ny, nw, nh = rects[node["id"]]
                     # Node x/y are fractions 0..1 within element bounds.
@@ -1017,66 +1292,66 @@ def build_pptx(project):
                     # Values are already EMU after parent geometry conversion.
                     sh = slide.shapes.add_shape(shape_type, nx, ny, nw, nh)
                     sh.fill.solid()
-                    sh.fill.fore_color.rgb = palette["pale"]
-                    sh.line.color.rgb = palette["accent"]
+                    critical_node = role == "safety" and (ni == len(nodes) - 1 or re.search(r"停止|暴露|警告|急救", node["label"]))
+                    sh.fill.fore_color.rgb = palette["warning_pale"] if critical_node else palette["pale"]
+                    sh.line.color.rgb = palette["warning"] if critical_node else palette["accent"]
                     sh.text = node["label"]
                     sh.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
                     sh.text_frame.word_wrap = True
-                    sh.text_frame.margin_left = sh.text_frame.margin_right = __import__("pptx").util.Inches(0.08)
-                    paragraph = sh.text_frame.paragraphs[0]
-                    paragraph.font.name = plan.get("font", "Arial")
-                    paragraph.font.size = __import__("pptx").util.Pt(e.get("font_size", 15))
-                    paragraph.font.color.rgb = palette["ink"]
-                    paragraph.alignment = PP_ALIGN.CENTER
+                    sh.text_frame.margin_left = sh.text_frame.margin_right = Inches(0.08)
+                    for paragraph in sh.text_frame.paragraphs:
+                        paragraph.font.name = font_name
+                        paragraph.font.size = Pt(e.get("font_size", 15))
+                        paragraph.font.color.rgb = palette["warning"] if critical_node else palette["ink"]
+                        paragraph.font.bold = True
+                        paragraph.alignment = PP_ALIGN.CENTER
                 for edge in edges:
                     if edge.get("label"):
                         # Center labels in the inter-node gap, offset from the connector stroke.
                         a, b = rects[edge["from"]], rects[edge["to"]]
                         mx = (a[0] + a[2] // 2 + b[0] + b[2] // 2) // 2
-                        my = max(a[1] + a[3], b[1] + b[3]) + __import__("pptx").util.Inches(0.06)
+                        my = max(a[1] + a[3], b[1] + b[3]) + Inches(0.06)
                         lab = slide.shapes.add_textbox(
-                            mx - __import__("pptx").util.Inches(0.6),
+                            mx - Inches(0.6),
                             my,
-                            __import__("pptx").util.Inches(1.2),
-                            __import__("pptx").util.Inches(0.24),
+                            Inches(1.2),
+                            Inches(0.24),
                         )
                         lab.text = edge["label"]
                         paragraph = lab.text_frame.paragraphs[0]
-                        paragraph.font.name = plan.get("font", "Arial")
-                        paragraph.font.size = __import__("pptx").util.Pt(10)
+                        paragraph.font.name = font_name
+                        paragraph.font.size = Pt(10)
                         paragraph.font.color.rgb = palette["muted"]
                         paragraph.alignment = PP_ALIGN.CENTER
             else:
                 raise ValueError(f"unsupported visual type {typ}")
-        # Full citations and all supported claim text remain in notes; concise IDs appear on slide.
+        # Concise source IDs remain visible. Full evidence lives in the evidence-notes block.
         source_ids = sorted(
             {sid for cid in item.get("claim_ids", []) for sid in claims.get(cid, {}).get("source_ids", [])}
         )
-        cited = " | ".join(
-            f"[{sid}] {sources[sid].get('title', '')} {sources[sid].get('year', '')} {sources[sid].get('doi') or sources[sid].get('url') or ''}"
-            for sid in source_ids
-            if sid in sources
-        )
-        if source_ids:
+        if source_ids and role not in {"cover", "closing"}:
             citation = slide.shapes.add_textbox(
-                __import__("pptx").util.Inches(0.55),
-                __import__("pptx").util.Inches(7.13),
-                __import__("pptx").util.Inches(12.15),
-                __import__("pptx").util.Inches(0.22),
+                Inches(0.58), Inches(7.13), Inches(12.15), Inches(0.22)
             )
             citation.text = "Sources: " + "  ".join(f"[{sid}]" for sid in source_ids)
-            citation.text_frame.paragraphs[0].font.name = plan.get("font", "Arial")
-            citation.text_frame.paragraphs[0].font.size = __import__("pptx").util.Pt(10)
+            citation.text_frame.paragraphs[0].font.name = font_name
+            citation.text_frame.paragraphs[0].font.size = Pt(9)
             citation.text_frame.paragraphs[0].font.color.rgb = palette["muted"]
-        notes = item.get("notes", "")
-        if cited:
-            notes += "\n\nEvidence: " + cited
-        if item.get("claim_ids"):
-            notes += "\n\nClaims: " + ", ".join(item["claim_ids"])
-        slide.notes_slide.notes_text_frame.text = notes
-    out = project / "build/draft.pptx"
+        note_parts = split_speaker_and_evidence_notes(item, claims, sources)
+        notes = ["讲者提示", note_parts["delivery_notes"] or "（本页无需补充讲述）"]
+        if note_parts["evidence_notes"]:
+            notes.extend(["", "证据与版本", *[f"- {line}" for line in note_parts["evidence_notes"]]])
+        slide.notes_slide.notes_text_frame.text = "\n".join(notes)
+        notes_records.append((idx + 1, item["id"], item["title"], notes))
+    out = output_path or (project / "build/draft.pptx")
     out.parent.mkdir(parents=True, exist_ok=True)
     prs.save(out)
+    notes_md = []
+    for number, sid, title_text, notes in notes_records:
+        notes_md.extend([f"## {number:02d} · {sid} · {title_text}", "", *notes, ""])
+    out.with_name("notes.md").write_text("\n".join(notes_md).rstrip() + "\n", encoding="utf-8")
+    if not slide_ids:
+        design_preflight(project)
     # Open it again to detect a corrupt/unreadable package before offering the draft.
     Presentation(str(out))
     return out
@@ -1121,12 +1396,12 @@ def select_render_engine(engine):
     return engine
 
 
-def render_deck(project, engine):
-    pptx = project / "build/draft.pptx"
+def render_deck(project, engine, pptx_path=None, render_dir=None):
+    pptx = pptx_path or (project / "build/draft.pptx")
     if not pptx.exists():
         raise FileNotFoundError("run build first")
     engine = select_render_engine(engine)
-    rdir = project / "render"
+    rdir = render_dir or (project / "render")
     pages = rdir / "pages"
     if pages.exists():
         shutil.rmtree(pages)
@@ -1166,29 +1441,97 @@ def render_deck(project, engine):
             pix.save(pages / f"slide-{i:03}.png")
         shutil.copy2(pdf, rdir / "draft.pdf")
         doc.close()
-    items = [
-        {"path": f"render/pages/slide-{i:03}.png", "sha256": sha_file(pages / f"slide-{i:03}.png")}
-        for i in range(1, page_count + 1)
-    ]
+    items = []
+    for i in range(1, page_count + 1):
+        page_path = pages / f"slide-{i:03}.png"
+        items.append({"path": page_path.relative_to(project).as_posix(), "sha256": sha_file(page_path)})
+    contact_sheet = build_contact_sheet(
+        [pages / f"slide-{i:03}.png" for i in range(1, page_count + 1)],
+        rdir / "contact-sheet.png",
+    )
     record = {
         "pptx_sha256": sha_file(pptx),
         "engine": engine,
-        "pdf": "render/draft.pdf",
+        "pdf": (rdir / "draft.pdf").relative_to(project).as_posix(),
         "pdf_sha256": sha_file(rdir / "draft.pdf"),
+        "contact_sheet": contact_sheet.relative_to(project).as_posix(),
+        "contact_sheet_sha256": sha_file(contact_sheet),
         "pages": items,
     }
     write_json(rdir / "render.json", record)
     return record
 
 
+def prototype_slide_selection(project, requested=None):
+    plan = read_json(project / "slide-plan.json")
+    visual = {group["slide_id"]: group for group in read_json(project / "visual-plan.json")}
+    if requested:
+        return list(dict.fromkeys(requested))
+    slides = plan["slides"]
+    if len(slides) < 3:
+        raise ValueError("Prototype requires a deck with at least three slides")
+    cover = next((slide["id"] for slide in slides if infer_slide_role(slide) == "cover"), slides[0]["id"])
+    risk = None
+    for preferred_role in ("safety", "evidence", "workflow"):
+        risk = next(
+            (
+                slide["id"]
+                for slide in slides
+                if (visual.get(slide["id"], {}).get("role") or infer_slide_role(slide)) == preferred_role
+            ),
+            None,
+        )
+        if risk:
+            break
+    risk = risk or slides[-1]["id"]
+    candidates = [slide for slide in slides if slide["id"] not in {cover, risk}]
+    complex_slide = max(
+        candidates,
+        key=lambda slide: (
+            len(visual.get(slide["id"], {}).get("elements", [])),
+            sum(len(str(element.get("text", ""))) for element in visual.get(slide["id"], {}).get("elements", [])),
+        ),
+    )["id"]
+    return [cover, complex_slide, risk]
+
+
+def build_and_render_prototype(project, engine, requested=None):
+    slide_ids = prototype_slide_selection(project, requested)
+    if len(slide_ids) < 3:
+        raise ValueError("Prototype requires at least three representative slides")
+    order = {slide["id"]: index for index, slide in enumerate(read_json(project / "slide-plan.json")["slides"])}
+    slide_ids = sorted(slide_ids, key=order.get)
+    prototype_dir = project / "prototype"
+    pptx = build_pptx(project, slide_ids=slide_ids, output_path=prototype_dir / "prototype.pptx")
+    render = render_deck(project, engine, pptx_path=pptx, render_dir=prototype_dir / "render")
+    approval = {
+        "design_fingerprint_sha256": sha_file(project / "design-fingerprint.json")
+        if (project / "design-fingerprint.json").exists()
+        else None,
+        "design_system_sha256": sha_file(project / "design-system.json")
+        if (project / "design-system.json").exists()
+        else None,
+        "slide_plan_sha256": sha_file(project / "slide-plan.json"),
+        "visual_plan_sha256": sha_file(project / "visual-plan.json"),
+        "slides": slide_ids,
+        "reviewer": "",
+        "reviewed_at": "",
+        "status": "pending",
+        "findings": "",
+    }
+    write_json(prototype_dir / "approval.json", approval)
+    write_json(prototype_dir / "selection.json", {"slides": slide_ids, "generated_at": now()})
+    return {"slides": slide_ids, "pptx": str(pptx), "render": render, "approval": str(prototype_dir / "approval.json")}
+
+
 def create_review(project):
     plan = read_json(project / "slide-plan.json")
     obj = {
         "fingerprint": project_fingerprint(project),
-        "reviewer": "",
-        "role": "pending",
-        "reviewed_at": "",
-        "status": "pending",
+        "reviews": {
+            "visual": {"reviewer": "", "role": "pending", "reviewed_at": "", "status": "pending"},
+            "clinical": {"reviewer": "", "role": "pending", "reviewed_at": "", "status": "pending"},
+        },
         "slides": [
             {
                 "slide_id": s["id"],
@@ -1231,7 +1574,11 @@ def export_project(project):
         raise FileExistsError("final directory already contains an export; use a new versioned project directory")
     allow = [
         "build/draft.pptx",
+        "build/notes.md",
         "render/draft.pdf",
+        "design-fingerprint.json",
+        "design-system.json",
+        "prototype/approval.json",
         "slide-plan.json",
         "visual-plan.json",
         "sources.json",
@@ -1261,9 +1608,13 @@ def export_project(project):
             shutil.copy2(p, dest)
             sums[dest.name] = sha_file(dest)
     shutil.copytree(project / "render/pages", out / "preview/pages")
+    if (project / "render/contact-sheet.png").is_file():
+        shutil.copy2(project / "render/contact-sheet.png", out / "preview/contact-sheet.png")
     shutil.copy2(project / "intake/user_notice.json", out / "user_notice.json")
     for p in sorted((out / "preview/pages").glob("*.png")):
         sums[p.relative_to(out).as_posix()] = sha_file(p)
+    if (out / "preview/contact-sheet.png").is_file():
+        sums["preview/contact-sheet.png"] = sha_file(out / "preview/contact-sheet.png")
     write_json(out / "SHA256SUMS.json", sums)
     return out
 
@@ -1375,6 +1726,17 @@ def main():
     )
     p = sub.add_parser("validate")
     p.add_argument("project", type=Path)
+    p = sub.add_parser("design-audit")
+    p.add_argument("project", type=Path)
+    p.add_argument("source", type=Path)
+    p = sub.add_parser("design-preflight")
+    p.add_argument("project", type=Path)
+    p = sub.add_parser("normalize-design")
+    p.add_argument("project", type=Path)
+    p = sub.add_parser("prototype")
+    p.add_argument("project", type=Path)
+    p.add_argument("--slide", action="append", dest="slides")
+    p.add_argument("--engine", choices=["auto", "libreoffice", "powerpoint"], default="auto")
     p = sub.add_parser("build")
     p.add_argument("project", type=Path)
     p = sub.add_parser("render")
@@ -1497,11 +1859,44 @@ def main():
             errors = schema_errors(project) + cross_errors(project)
             print("\n".join(errors) if errors else "Schema and cross-file relations valid.")
             return 1 if errors else 0
+        if args.command == "design-audit":
+            result = audit_pptx_design(args.source)
+            write_json(project / "design-fingerprint.json", result)
+            schema_failures = schema_validate("design-fingerprint", result)
+            if schema_failures:
+                raise RuntimeError("Design audit produced invalid output: " + "; ".join(schema_failures))
+            print("Design fingerprint created:", project / "design-fingerprint.json")
+            return 0
+        if args.command == "design-preflight":
+            errors = schema_errors(project) + cross_errors(project)
+            if errors:
+                raise RuntimeError("Design preflight blocked by invalid project: " + "; ".join(errors[:8]))
+            report = design_preflight(project)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0 if report["passed"] else 2
+        if args.command == "normalize-design":
+            plan = read_json(project / "slide-plan.json")
+            visual_path = project / "visual-plan.json"
+            visual = read_json(visual_path)
+            normalized = enrich_visual_plan(plan, visual)
+            failures = schema_validate("visual-plan", normalized)
+            if failures:
+                raise RuntimeError("Normalized visual plan is invalid: " + "; ".join(failures))
+            write_json(visual_path, normalized)
+            print("Design semantics added:", visual_path)
+            return 0
+        if args.command == "prototype":
+            errors = schema_errors(project) + cross_errors(project)
+            if errors:
+                raise RuntimeError("Prototype blocked by invalid project: " + "; ".join(errors[:8]))
+            result = build_and_render_prototype(project, args.engine, args.slides)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
         if args.command == "build":
             brief = read_json(project / "intake/design_brief.json")
             if brief.get("status") == "discussion_only":
                 raise RuntimeError("This brief is for discussion only; build is not authorized.")
-            errors = schema_errors(project) + cross_errors(project)
+            errors = schema_errors(project) + cross_errors(project) + publication_gate_errors(project)
             if errors:
                 raise RuntimeError("Build blocked by invalid project: " + "; ".join(errors[:8]))
             print("Draft created:", build_pptx(project))

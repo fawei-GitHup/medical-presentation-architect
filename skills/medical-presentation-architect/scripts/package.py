@@ -5,15 +5,56 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_FILES = ["SKILL.md", "prompts", "rules", "workflows", "schemas", "scripts", "references", "ui", "LICENSE"]
+SKILL_FILES = [
+    "SKILL.md",
+    "README.md",
+    "VERSION",
+    "CHANGELOG.md",
+    "prompts",
+    "rules",
+    "workflows",
+    "schemas",
+    "scripts",
+    "references",
+    "adapters",
+    "ui",
+    "LICENSE",
+    "NOTICE",
+    "COMMERCIAL-LICENSING.md",
+    "THIRD-PARTY-NOTICES.md",
+    "CONTRIBUTING.md",
+]
 
 
 def sha(p):
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def tracked_and_unchanged(path):
+    """Allow repair of a stale manifest only when Git proves the generated file is untouched."""
+    try:
+        rel = path.relative_to(ROOT).as_posix()
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", rel],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        worktree = subprocess.run(
+            ["git", "diff", "--quiet", "--", rel], cwd=ROOT, check=False
+        )
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--quiet", "--", rel], cwd=ROOT, check=False
+        )
+        return tracked.returncode == worktree.returncode == staged.returncode == 0
+    except (OSError, ValueError):
+        return False
 
 
 def public_files():
@@ -23,8 +64,7 @@ def public_files():
             not p.is_file()
             or p.is_symlink()
             or any(
-                x
-                in (
+                part in {
                     ".git",
                     "__pycache__",
                     ".venv",
@@ -37,12 +77,16 @@ def public_files():
                     "render",
                     "final",
                     "work",
-                )
-                for x in p.parts
+                }
+                for part in p.parts
             )
         ):
             continue
-        if p.suffix.lower() == ".pyc" or p.name.endswith(".tmp") or p.name in (".DS_Store", "Thumbs.db"):
+        if p.suffix.lower() == ".pyc" or p.name.endswith(".tmp") or p.name in (
+            ".DS_Store",
+            "Thumbs.db",
+            ".mpa-install.json",
+        ):
             continue
         items.append(p)
     return sorted(items)
@@ -60,32 +104,43 @@ def sync_codex_skill():
         if previous.get("format") != "mpa-generated-skill-v1":
             raise SystemExit("Unknown generated-skill manifest; refusing to overwrite it")
         for rel, digest in previous.get("files", {}).items():
-            p = (dest / rel).resolve()
-            if dest.resolve() not in p.parents:
+            target = (dest / rel).resolve()
+            if dest.resolve() not in target.parents:
                 raise SystemExit(f"Unsafe generated-skill manifest path: {rel}")
-            if p.is_file() and sha(p) != digest:
+            if target.is_file() and sha(target) != digest and not tracked_and_unchanged(target):
                 raise SystemExit(f"Generated skill file was changed locally; preserve/resolve before packaging: {rel}")
+    copied = set()
     for name in SKILL_FILES:
-        src = ROOT / name
-        if src.is_file():
-            targets = [src]
-        elif src.is_dir():
-            targets = [p for p in src.rglob("*") if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"]
+        source_root = ROOT / name
+        if source_root.is_file():
+            sources = [source_root]
+        elif source_root.is_dir():
+            sources = [
+                p
+                for p in source_root.rglob("*")
+                if p.is_file() and "__pycache__" not in p.parts and p.suffix.lower() != ".pyc"
+            ]
         else:
             continue
-        for source in targets:
+        for source in sources:
             rel = source.relative_to(ROOT)
             target = dest / rel
             if target.is_symlink():
                 raise SystemExit(f"Refusing to replace symlink in generated skill: {rel.as_posix()}")
-            if (
-                target.exists()
-                and not (previous and rel.as_posix() in previous.get("files", {}))
-                and sha(target) != sha(source)
-            ):
+            if target.exists() and not (previous and rel.as_posix() in previous.get("files", {})) and sha(target) != sha(source):
                 raise SystemExit(f"Generated skill path collides with a different local file: {rel.as_posix()}")
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+            copied.add(rel.as_posix())
+    if previous:
+        for rel in previous.get("files", {}):
+            if rel == "agents/openai.yaml" or rel in copied:
+                continue
+            stale = (dest / rel).resolve()
+            if dest.resolve() not in stale.parents:
+                raise SystemExit(f"Unsafe generated-skill manifest path: {rel}")
+            if stale.is_file():
+                stale.unlink()
     meta = dest / "agents" / "openai.yaml"
     meta.parent.mkdir(parents=True, exist_ok=True)
     meta.write_text(
@@ -95,10 +150,11 @@ def sync_codex_skill():
     files = {
         p.relative_to(dest).as_posix(): sha(p)
         for p in dest.rglob("*")
-        if p.is_file() and p != marker and "__pycache__" not in p.parts and p.suffix != ".pyc"
+        if p.is_file() and p != marker and "__pycache__" not in p.parts and p.suffix.lower() != ".pyc"
     }
     marker.write_text(
-        json.dumps({"format": "mpa-generated-skill-v1", "files": files}, indent=2) + "\n", encoding="utf-8"
+        json.dumps({"format": "mpa-generated-skill-v1", "files": files}, indent=2) + "\n",
+        encoding="utf-8",
     )
     return dest
 
@@ -117,6 +173,8 @@ def main():
         ".xls",
         ".xlsx",
         ".db",
+        ".dcm",
+        ".nii",
         ".png",
         ".jpg",
         ".jpeg",

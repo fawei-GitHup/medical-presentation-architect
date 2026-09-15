@@ -7,16 +7,16 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.3/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.3.0/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.1.3/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.3.0/bootstrap.sh | sh
 ```
 
-脚本固定下载 `v1.1.3` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
+脚本固定下载 `v1.3.0` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
 
 ## 本地中文界面
 

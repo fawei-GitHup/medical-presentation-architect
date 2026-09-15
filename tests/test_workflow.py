@@ -16,6 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mpa  # noqa: E402
 import ui_server  # noqa: E402
+from design_quality import (  # noqa: E402
+    choose_composition,
+    delivery_notes_text,
+    enrich_visual_plan,
+    run_design_quality_checks,
+    validate_decision_evidence,
+)
 from pptx_lint import lint  # noqa: E402
 
 
@@ -504,8 +511,12 @@ class MpaTests(unittest.TestCase):
         from pptx.enum.shapes import MSO_SHAPE_TYPE
 
         self.assertTrue(any(sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE for s in prs.slides for sh in s.shapes))
-        nodes = [sh for sh in prs.slides[1].shapes if sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE]
-        self.assertEqual(len(nodes), 3)
+        nodes = [
+            sh
+            for sh in prs.slides[1].shapes
+            if sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE and getattr(sh, "text", "").strip()
+        ]
+        self.assertEqual({sh.text for sh in nodes}, {"需求访谈", "材料盘点", "制定结构"})
         self.assertTrue(all(sh.width > 0 and sh.height > 0 for sh in nodes))
         self.assertTrue(lint(out)["passed"])
 
@@ -616,6 +627,66 @@ class MpaTests(unittest.TestCase):
         )
         self.assertIn("user local note", edited.read_text(encoding="utf-8"))
         self.assertTrue(dest.exists())
+
+    def test_design_composition_avoids_repeating_the_previous_layout(self):
+        slide = {"id": "s1", "title": "正文", "layout": "image_right_text_left"}
+        composition = choose_composition(slide, {}, ["text_image_split", "text_image_split"])
+        self.assertEqual(composition, "image_text_split")
+
+    def test_delivery_notes_exclude_evidence_metadata(self):
+        notes = {
+            "notes": "目标：说明。\n讲述：这是讲者要说的话。\n互动提问：请回答。\n过渡：下一页。\n图片归属：本地。"
+        }
+        self.assertEqual(delivery_notes_text(notes), "这是讲者要说的话。\n请回答。")
+
+    def test_decision_slide_requires_verified_evidence(self):
+        decision = {"id": "s1", "layout": "decision_tree", "claim_ids": ["c1"]}
+        product_only = {"c1": {"id": "c1", "kind": "device", "status": "verified", "scope": "厂商产品参数"}}
+        guideline = {"c1": {"id": "c1", "kind": "guideline", "status": "verified", "scope": "临床决策指南"}}
+        self.assertTrue(validate_decision_evidence(decision, product_only))
+        self.assertEqual(validate_decision_evidence(decision, guideline), [])
+
+    def test_assessment_layout_is_enriched_for_printing_and_passes_preflight(self):
+        plan = {
+            "width": 13.333,
+            "height": 7.5,
+            "slides": [
+                {
+                    "id": "s1",
+                    "title": "考核",
+                    "layout": "checklist_two_col",
+                    "takeaway": "完成",
+                    "duration_seconds": 60,
+                }
+            ],
+        }
+        visual = [
+            {
+                "slide_id": "s1",
+                "elements": [
+                    {
+                        "id": "e1",
+                        "type": "checklist",
+                        "x": 1,
+                        "y": 1.5,
+                        "w": 5,
+                        "h": 4,
+                        "z": 1,
+                        "purpose": "清单",
+                        "alt": "清单",
+                        "claim_ids": [],
+                        "text": "步骤\n☑ 项目",
+                        "font_size": 14,
+                    }
+                ],
+            }
+        ]
+        enriched = enrich_visual_plan(plan, visual)
+        self.assertEqual(enriched[0]["role"], "assessment")
+        self.assertEqual(enriched[0]["elements"][0]["font_size"], 17)
+        self.assertIn("姓名", enriched[0]["elements"][-1]["text"])
+        report = run_design_quality_checks(plan, enriched, [])
+        self.assertTrue(report["passed"], report["warnings"])
 
 
 if __name__ == "__main__":

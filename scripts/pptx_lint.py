@@ -61,7 +61,7 @@ def lint(path):
                         )
                         xml_shapes.append((rect, text, is_image))
                     for ix, (rect, text, is_image) in enumerate(xml_shapes):
-                        if is_image:
+                        if is_image or not text:
                             continue
                         for cover_rect, _, cover_is_image in xml_shapes[ix + 1 :]:
                             if cover_is_image and overlap(rect, cover_rect) > 0.65:
