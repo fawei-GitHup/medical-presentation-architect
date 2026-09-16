@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-VERSION=${MPA_VERSION:-1.4.0}
+VERSION=${MPA_VERSION:-1.4.1}
 AGENT=${MPA_AGENT:-kimi}
 BASE=${MPA_BASE_URL:-"https://github.com/fawei-GitHup/medical-presentation-architect/releases/download/v$VERSION"}
 BASE=${BASE%/}

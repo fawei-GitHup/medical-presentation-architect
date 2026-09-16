@@ -5,13 +5,13 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.0/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.1/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.0/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.1/bootstrap.sh | sh
 ```
 
 安装后启动 Kimi，并输入 `/skill:medical-presentation-architect` 加上你的主题。若希望先在界面中整理需求，运行安装目录下的 `scripts/ui_server.py`；浏览器表单会生成项目和可复制的 Kimi 启动命令。
@@ -47,4 +47,4 @@ kimi --skills-dir ./local-skills -p '使用 medical-presentation-architect，继
 
 Windows 渲染无需 `comtypes`。运行 `python scripts/mpa.py doctor` 后直接使用 `python scripts/mpa.py render PROJECT --engine auto`；检测到 PowerPoint COM 时会自动选择 `powerpoint`，否则才寻找 LibreOffice。不要让 Kimi 用 grep/sed 临时解析 `mpa.py`，这在 Windows shell 中容易产生与项目无关的红色错误。
 
-处理既有 PPTX 时先运行 `media-index`，每次只让 Kimi 查看最多 4 张小缩略图；完成 `media_review.json` 后才对选中项运行 `media-extract`。长任务用 `scripts/capture_run.py --scrub-images --heartbeat 60`，避免高分辨率 Base64 进入会话和日志。用 `stage` 记录并行分支、用 `resume` 从有效哈希 checkpoint 接续。构建后必须运行 `source-map-check` 和 `perceptual-preflight`；内部 `SRC*` 只留在 notes，不得直接出现在观众页。
+处理既有 PPTX 时先运行 `media-index`，每次只让 Kimi 查看最多 4 张小缩略图；完成 `media_review.json` 后才对选中项运行 `media-extract`。长任务用 `scripts/capture_run.py --scrub-images --heartbeat 60`，避免高分辨率 Base64 进入会话和日志。用 `stage` 记录分支、用 `resume` 从有效哈希 checkpoint 接续；`ready` 仅表示依赖上可并行，当前 Kimi 宿主若未提供并行 agent/任务能力则顺序运行。构建后必须运行 `source-map-check` 和 `perceptual-preflight`；内部 `SRC*` 只留在 notes，不得直接出现在观众页。

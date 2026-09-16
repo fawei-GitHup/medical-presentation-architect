@@ -69,8 +69,21 @@ def readable_citations(source_ids: list[str], sources: dict[str, dict], max_item
     return "; ".join(labels)
 
 
+def _shape_text(shape) -> str:
+    chunks = []
+    if getattr(shape, "has_text_frame", False):
+        chunks.append(str(shape.text or ""))
+    if getattr(shape, "has_table", False):
+        chunks.extend(cell.text for row in shape.table.rows for cell in row.cells)
+    children = getattr(shape, "shapes", None)
+    if children is not None:
+        chunks.extend(_shape_text(child) for child in children)
+    return "\n".join(chunk for chunk in chunks if chunk)
+
+
 def _slide_text(slide) -> str:
-    return "\n".join(str(getattr(shape, "text", "")) for shape in slide.shapes if getattr(shape, "has_text_frame", False))
+    """Collect visible text from text frames, tables, and nested groups."""
+    return "\n".join(filter(None, (_shape_text(shape) for shape in slide.shapes)))
 
 
 def _note_text(slide) -> str:

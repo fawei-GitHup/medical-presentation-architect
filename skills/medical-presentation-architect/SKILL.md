@@ -21,7 +21,7 @@ description: 规划、制作、重设计或审计医生护士医学演示文稿�
 
 ## 执行路线
 
-读取 `intake/execution_prompt.md`、[prompts/master.md](prompts/master.md) 与 [execution graph](workflows/execution-graph.md)。intake、architecture、prototype、build、render、final QA、export 维持依赖顺序；其余 research、design audit、media/privacy、evidence、visual、notes 与机器检查按依赖图并行。用阶段 checkpoint 与产物哈希恢复，不因单个分支失败重做全部流程。
+读取 `intake/execution_prompt.md`、[prompts/master.md](prompts/master.md) 与 [execution graph](workflows/execution-graph.md)。intake、architecture、prototype、build、render、final QA、export 维持依赖顺序；其余 research、design audit、media/privacy、evidence、visual、notes 与机器检查按依赖图并行。`resume.ready` 是可并行候选，不代表当前宿主已自动并发；只有宿主明确提供并行 agent/任务能力时才同时派发，否则按 ready 顺序执行。阶段 checkpoint 使用跨进程锁、原子写入与产物哈希恢复，不因单个分支失败重做全部流程。
 执行提示词由 `python scripts/mpa.py prompt PROJECT` 依当前 brief 自动生成，用户无需复制粘贴。局部修改只影响 brief 的允许范围并使相关审核失效；不要整套重构。现有 PPT 的视觉风格不能只靠文字描述，先按 [source design audit](workflows/source-design-audit.md) 生成 `design-fingerprint.json`，明确保留、修复和禁止复制的特征。
 
 |阶段|执行指引|项目产物|

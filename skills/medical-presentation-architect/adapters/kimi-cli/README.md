@@ -8,4 +8,4 @@ Kimi 显示“Run this command / Approve”是宿主自身的命令权限提示�
 
 `review-template` 只会生成全部为 false 的空白审核表。必须先实际查看每张 PNG，再把已完成的检查和具体发现写入 review.json；不得因为“已看过”就跳过记录，也不得编造 reviewer 或 clinical_expert。`qa` 默认用 `QA_PENDING` 正常返回并在 `review_progress` 汇总待办；只有它显示 passed=true 后才能运行 prepare-delivery-notice、notice-sent delivery 和 export。
 
-既有 PPTX 使用 `media-index`/`review-media` 分批审素材，不把原始大图 Base64 放入上下文；只有采用项才 `media-extract`。长任务用 `capture_run.py --scrub-images --heartbeat 60`，分支完成后用 `stage` 记录产物哈希，失败后用 `resume` 接续。build 后并行运行 PPTX lint、`source-map-check`、`perceptual-preflight`、notes 与隐私/权利检查，render 后再汇合 contact sheet 和逐页视觉审核。
+既有 PPTX 使用 `media-index`/`review-media` 分批审素材，不把原始大图 Base64 放入上下文；只有采用项才 `media-extract`。长任务用 `capture_run.py --scrub-images --heartbeat 60`，分支完成后用 `stage` 记录产物哈希，失败后用 `resume` 接续。build 后的 PPTX lint、`source-map-check`、`perceptual-preflight`、notes 与隐私/权利检查在依赖上可并行；Kimi 当前宿主只有明确提供并行 agent/任务能力时才同时派发，否则顺序运行并在 render 后汇合 contact sheet 和逐页视觉审核。

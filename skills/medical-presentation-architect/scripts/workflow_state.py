@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,10 +85,54 @@ def _load(project: Path) -> dict:
     return value
 
 
-def _save(project: Path, state: dict) -> None:
-    path = project / "run/stages.json"
+def _atomic_write_json(path: Path, value: dict) -> None:
+    """Replace JSON atomically so readers never observe a half-written file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    payload = json.dumps(value, ensure_ascii=False, indent=2) + "\n"
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary_path = Path(temporary)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@contextmanager
+def _state_lock(project: Path):
+    """Serialize read-modify-write updates across parallel stage processes."""
+    lock_path = project / "run/stages.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+b") as handle:
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _save(project: Path, state: dict) -> None:
+    _atomic_write_json(project / "run/stages.json", state)
 
 
 def record_stage(project: Path, phase: str, status: str, artifacts: list[Path] | None = None) -> dict:
@@ -93,7 +140,6 @@ def record_stage(project: Path, phase: str, status: str, artifacts: list[Path] |
         raise ValueError(f"unknown phase: {phase}")
     if status not in STATUSES:
         raise ValueError(f"unknown stage status: {status}")
-    state = _load(project)
     artifact_records = []
     for artifact in artifacts or []:
         resolved = _safe_artifact(project, artifact)
@@ -107,12 +153,15 @@ def record_stage(project: Path, phase: str, status: str, artifacts: list[Path] |
         "dependencies": DEPENDENCIES[phase],
         "artifacts": artifact_records,
     }
-    state["stages"][phase] = record
-    state["updated_at"] = record["updated_at"]
-    _save(project, state)
-    checkpoint = project / "run/checkpoints" / f"{phase}.json"
-    checkpoint.parent.mkdir(parents=True, exist_ok=True)
-    checkpoint.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    with _state_lock(project):
+        # Re-read under the lock. Parallel branches otherwise overwrite each
+        # other's stage records even if each individual write is atomic.
+        state = _load(project)
+        state["stages"][phase] = record
+        state["updated_at"] = record["updated_at"]
+        _save(project, state)
+        checkpoint = project / "run/checkpoints" / f"{phase}.json"
+        _atomic_write_json(checkpoint, record)
     return record
 
 

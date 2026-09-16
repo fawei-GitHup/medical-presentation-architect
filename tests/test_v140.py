@@ -2,10 +2,13 @@ import base64
 import hashlib
 import io
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from PIL import Image
 from pptx import Presentation
@@ -66,6 +69,13 @@ class V140Tests(unittest.TestCase):
         path = Path(extracted[0]["path"])
         self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), report["media"][0]["sha256"])
 
+    def test_media_index_rejects_oversized_archive_member_before_decompression(self):
+        deck = self.tmp / "oversized.pptx"
+        with ZipFile(deck, "w", ZIP_DEFLATED) as archive:
+            archive.writestr("ppt/media/oversized.bin", b"x" * 1024)
+        with patch.object(media_index, "MAX_MEDIA_BYTES", 128), self.assertRaisesRegex(ValueError, "exceeds"):
+            media_index.index_pptx(deck, self.tmp / "oversized-index")
+
     def test_source_map_rejects_internal_id_without_mapping(self):
         prs = Presentation()
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -94,6 +104,24 @@ class V140Tests(unittest.TestCase):
         report = source_map_check.check_presentation(deck, [source])
         self.assertTrue(report["passed"], report["issues"])
         self.assertNotIn("SRC1", source_map_check.readable_citations(["SRC1"], {"SRC1": source}))
+
+    def test_source_map_reads_grouped_text_and_reference_tables(self):
+        source = {"id": "SRC1", "authors": "Sannino G", "year": 2015, "title": "CEREC review"}
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        group = slide.shapes.add_group_shape()
+        group.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1)).text = "内部证据 [SRC1]"
+        references = prs.slides.add_slide(prs.slide_layouts[6])
+        table = references.shapes.add_table(2, 1, Inches(1), Inches(1), Inches(10), Inches(2)).table
+        table.cell(0, 0).text = "参考文献"
+        table.cell(1, 0).text = "SRC1 — Sannino, 2015. CEREC review."
+        deck = self.tmp / "nested-citations.pptx"
+        prs.save(deck)
+        report = source_map_check.check_presentation(deck, [source])
+        codes = {issue["code"] for issue in report["issues"]}
+        self.assertIn("internal_id_visible", codes)
+        self.assertNotIn("missing_reference_mapping", codes)
+        self.assertEqual(report["reference_slides"], [2])
 
     def test_perceptual_preflight_finds_overlap_and_occluded_connector(self):
         prs = Presentation()
@@ -150,6 +178,33 @@ class V140Tests(unittest.TestCase):
         report = workflow_state.resume_plan(project)
         self.assertIn("intake", report["stale"])
         self.assertIn("research", report["stale"])
+
+    def test_parallel_stage_updates_do_not_overwrite_each_other(self):
+        project = self.tmp / "parallel-project"
+        project.mkdir()
+        phases = ["design_audit", "media", "assets", "research", "doctor", "design_system"]
+        code = (
+            "import sys;from pathlib import Path;"
+            "sys.path.insert(0,sys.argv[1]);import workflow_state;"
+            "workflow_state.record_stage(Path(sys.argv[2]),sys.argv[3],'completed',[Path(sys.argv[4])])"
+        )
+        processes = []
+        for phase in phases:
+            artifact = project / f"{phase}.txt"
+            artifact.write_text(phase, encoding="utf-8")
+            processes.append(
+                subprocess.Popen(
+                    [sys.executable, "-c", code, str(ROOT / "scripts"), str(project), phase, artifact.name],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+            )
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=30)
+            self.assertEqual(process.returncode, 0, stdout + stderr)
+        state = workflow_state._load(project)
+        self.assertEqual(set(state["stages"]), set(phases))
 
     def test_capture_scrub_removes_data_uri_and_preserves_audit_metadata(self):
         buffer = io.BytesIO()

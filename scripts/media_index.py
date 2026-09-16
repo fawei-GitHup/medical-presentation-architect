@@ -17,6 +17,10 @@ from xml.etree import ElementTree as ET
 
 REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 MAX_THUMBNAIL = (640, 640)
+MAX_XML_BYTES = 16 * 1024 * 1024
+MAX_MEDIA_BYTES = 128 * 1024 * 1024
+MAX_TOTAL_MEDIA_BYTES = 1024 * 1024 * 1024
+MAX_COMPRESSION_RATIO = 250
 
 
 def _now() -> str:
@@ -33,6 +37,18 @@ def _slide_number(name: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _safe_read(archive: zipfile.ZipFile, name: str, max_bytes: int) -> bytes:
+    """Bound decompression before loading an OOXML member into memory."""
+    info = archive.getinfo(name)
+    if info.file_size > max_bytes:
+        raise ValueError(f"archive member exceeds {max_bytes} bytes: {name}")
+    if info.file_size and info.compress_size == 0:
+        raise ValueError(f"archive member has an invalid zero compressed size: {name}")
+    if info.compress_size and info.file_size / info.compress_size > MAX_COMPRESSION_RATIO:
+        raise ValueError(f"archive member compression ratio is suspicious: {name}")
+    return archive.read(info)
+
+
 def _media_relationships(archive: zipfile.ZipFile) -> dict[str, list[dict]]:
     found: dict[str, list[dict]] = {}
     for name in archive.namelist():
@@ -40,7 +56,7 @@ def _media_relationships(archive: zipfile.ZipFile) -> dict[str, list[dict]]:
         if slide_number is None:
             continue
         try:
-            root = ET.fromstring(archive.read(name))
+            root = ET.fromstring(_safe_read(archive, name, MAX_XML_BYTES))
         except ET.ParseError:
             continue
         slide_dir = posixpath.dirname(posixpath.dirname(name))
@@ -126,8 +142,11 @@ def index_pptx(pptx_path: Path, output_root: Path, batch_size: int = 4) -> dict:
     with zipfile.ZipFile(pptx_path) as archive:
         relationships = _media_relationships(archive)
         media_names = sorted(name for name in archive.namelist() if name.startswith("ppt/media/") and not name.endswith("/"))
+        total_media_bytes = sum(archive.getinfo(name).file_size for name in media_names)
+        if total_media_bytes > MAX_TOTAL_MEDIA_BYTES:
+            raise ValueError(f"embedded media exceeds {MAX_TOTAL_MEDIA_BYTES} uncompressed bytes")
         for name in media_names:
-            data = archive.read(name)
+            data = _safe_read(archive, name, MAX_MEDIA_BYTES)
             digest = hashlib.sha256(data).hexdigest()
             if digest in by_hash:
                 by_hash[digest]["archive_paths"].append(name)
@@ -194,7 +213,7 @@ def extract_selected(index: dict, output_dir: Path, selectors: list[str]) -> lis
     with zipfile.ZipFile(source) as archive:
         for item in selected:
             archive_path = item["archive_paths"][0]
-            data = archive.read(archive_path)
+            data = _safe_read(archive, archive_path, MAX_MEDIA_BYTES)
             digest = hashlib.sha256(data).hexdigest()
             if digest != item["sha256"]:
                 raise RuntimeError(f"embedded media hash mismatch for {item['id']}")

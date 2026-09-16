@@ -33,6 +33,14 @@ def _shape_text(shape) -> str:
     return ""
 
 
+def _deep_shape_text(shape) -> str:
+    chunks = [_shape_text(shape)]
+    children = getattr(shape, "shapes", None)
+    if children is not None:
+        chunks.extend(_deep_shape_text(child) for child in children)
+    return "\n".join(chunk for chunk in chunks if chunk)
+
+
 def _font_sizes(shape) -> list[float]:
     sizes = []
     if getattr(shape, "has_text_frame", False):
@@ -145,9 +153,9 @@ def analyze_presentation(pptx_path: Path, rendered_dir: Path | None = None) -> d
     for slide_id, slide in enumerate(prs.slides, 1):
         shapes = list(slide.shapes)
         signatures.append(_layout_signature(shapes, slide_w, slide_h))
-        full_text = "\n".join(filter(None, (_shape_text(shape) for shape in shapes)))
+        full_text = "\n".join(filter(None, (_deep_shape_text(shape) for shape in shapes)))
         reference_slide = bool(REFERENCE_RE.search(full_text[:700]))
-        total_chars = sum(len(re.sub(r"\s+", "", _shape_text(shape))) for shape in shapes)
+        total_chars = sum(len(re.sub(r"\s+", "", _deep_shape_text(shape))) for shape in shapes)
         cards = []
         lines = [shape for shape in shapes if _is_connector(shape)]
         nodes = [shape for shape in shapes if _is_node(shape)]
@@ -156,6 +164,17 @@ def analyze_presentation(pptx_path: Path, rendered_dir: Path | None = None) -> d
             x, y, w, h = _box(shape)
             text = _shape_text(shape)
             area = max(0.0, w * h)
+            if getattr(shape, "shapes", None) is not None:
+                issues.append(
+                    _issue(
+                        "group_shape_requires_render_review",
+                        "warning",
+                        slide_id,
+                        name,
+                        "grouped or nested shapes use transform semantics that are not fully represented by top-level geometry checks",
+                        "Inspect the rendered slide; ungroup before geometry-critical editing when practical.",
+                    )
+                )
             if x < -0.01 or y < -0.01 or x + w > slide_w + 0.01 or y + h > slide_h + 0.01:
                 issues.append(
                     _issue(
@@ -397,6 +416,7 @@ def analyze_presentation(pptx_path: Path, rendered_dir: Path | None = None) -> d
         "slides": slide_summaries,
         "limitations": [
             "Line-wrap and information-density findings are heuristics and require rendered-page confirmation.",
+            "Nested group geometry is flagged for rendered review rather than treated as exact child coordinates.",
             "This report does not establish medical correctness, privacy compliance, or source support.",
         ],
     }

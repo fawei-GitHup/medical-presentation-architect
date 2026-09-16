@@ -7,16 +7,16 @@
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.0/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.1/bootstrap.ps1 | iex
 ```
 
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.0/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fawei-GitHup/medical-presentation-architect/v1.4.1/bootstrap.sh | sh
 ```
 
-脚本固定下载 `v1.4.0` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
+脚本固定下载 `v1.4.1` Release，并在安装前核对随 Release 发布的 SHA-256。默认安装给 Kimi；可在执行前设置 `MPA_AGENT=claude`、`MPA_AGENT=codex`，或用 `MPA_TARGET` 指定 skills 父目录。Windows 使用 `$env:MPA_AGENT` / `$env:MPA_TARGET`。
 
 ## 本地中文界面
 
@@ -56,7 +56,7 @@ python scripts/mpa.py review-media projects/my-talk --batch-size 4
 python scripts/mpa.py media-extract projects/my-talk --select M003
 ```
 
-阶段可分别登记 checkpoint；`resume` 会核对产物哈希并返回当前可并行阶段。长命令可用 scrubbed 日志与空闲心跳包装：
+阶段可分别登记并发安全的 checkpoint；`resume` 会核对产物哈希并在 `ready` 中返回当前依赖上可并行的阶段。`ready` 不是自动调度承诺：宿主没有并行 agent/任务能力时按顺序执行。长命令可用 scrubbed 日志与空闲心跳包装：
 
 ```sh
 python scripts/mpa.py stage projects/my-talk --phase research --status completed --artifact research.md
