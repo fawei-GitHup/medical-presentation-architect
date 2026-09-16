@@ -22,6 +22,7 @@ SKILL_FILES = [
     "scripts",
     "references",
     "adapters",
+    "docs",
     "ui",
     "LICENSE",
     "NOTICE",

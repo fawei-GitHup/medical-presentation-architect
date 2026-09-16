@@ -26,6 +26,7 @@ PAYLOAD = [
     "scripts",
     "references",
     "adapters",
+    "docs",
     "ui",
 ]
 

@@ -607,6 +607,7 @@ class MpaTests(unittest.TestCase):
         ]
         subprocess.run(cmd, check=True, capture_output=True, text=True)
         dest = parent / "medical-presentation-architect"
+        self.assertTrue((dest / "docs/usage.md").is_file())
         edited = dest / "SKILL.md"
         edited.write_text(edited.read_text(encoding="utf-8") + "\nuser local note\n", encoding="utf-8")
         with self.assertRaises(subprocess.CalledProcessError):

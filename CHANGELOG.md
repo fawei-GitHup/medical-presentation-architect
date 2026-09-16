@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 — 2026-09-16
+
+修复交付层引用：观众页不再直接显示 `SRC*` 内部账本 ID，改用作者—年份短引文；新增 `citation-display` 规则和 `source-map-check`，检查内部 ID 泄漏、来源不存在、末页映射遗漏、重复与顺序，同时保留 notes 中的完整证据追踪。
+
+修复流程图几何：构建器按泳道可用宽度统一计算节点与 gap，并把 connector 端点锚到节点边界。新增 PPTX 级 `perceptual-preflight`，可发现节点重叠、连接线缺失/遮挡、孤字行、过密文本、巨大低信息卡片、卡片过多、连续同构、参考文献过小、越界与过小图片。真实 26 页 Kimi 稿回归稳定捕获第 4 页 0.021 英寸重叠、连接线遮挡和全稿引用 ID 泄漏，并额外发现第 12 页相同几何缺陷、多个流程页中心连线遮挡及第 26 页参考文献字号风险。
+
+新增低上下文素材链路：`media-index` 在本地解析 PPTX、按 SHA-256 去重、记录尺寸/字节/出现页，只生成受限缩略图与每批最多 4 张的 contact sheet；`review-media` 保存可恢复的用途、隐私、权利和采用判断；`media-extract` 只导出选中且哈希一致的原图。
+
+新增依赖图 checkpoint 与 `stage`/`resume`，并为分支产物绑定哈希；新增 `revise --findings` 定点保存 before 证据、仅使目标页审核和依赖阶段失效；新增 `capture_run.py --scrub-images --heartbeat 60`，清除日志中的 data URI/大块 Base64，同时保留哈希、尺寸、清理量、阶段、耗时、最新文件和重试数。
+
+本版将构建后 PPTX lint、引用映射、感知预检、notes 与隐私/权利检查设为并行分支，将渲染后的 contact sheet、逐页视觉和页数/哈希检查设为另一组并行分支，最终 QA 作为 join gate。新增 10 项 1.4.0 行为测试；连同既有回归共 64 项。
+
 ## 1.3.0 — 2026-09-15
 
 新增 source design audit、可执行 design system、三页代表样稿与批准哈希、语义视觉计划、contact sheet、版式质量检查、publication 构建门禁，以及相互独立的视觉复核与临床复核。完整 PowerPoint 回渲染测试覆盖 25 页示例，设计预检无警告，行为测试 7 项通过。

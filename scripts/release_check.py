@@ -28,6 +28,7 @@ REQUIRED = [
     ".gitattributes",
     ".github/ISSUE_TEMPLATE/commercial-license-request.yml",
     "tests/test_workflow.py",
+    "tests/test_v140.py",
     "examples/demo/slide-plan.json",
     "install.sh",
     "install.ps1",
@@ -52,6 +53,8 @@ REQUIRED = [
     "prompts/intake.md",
     "prompts/master.md",
     "rules/evidence-policy.md",
+    "rules/citation-display.md",
+    "rules/perceptual-quality.md",
     "rules/failure-gates.md",
     "rules/image-policy.md",
     "rules/language.md",
@@ -60,6 +63,8 @@ REQUIRED = [
     "rules/privacy.md",
     "rules/visual-policy.md",
     "workflows/source-design-audit.md",
+    "workflows/media-intake.md",
+    "workflows/execution-graph.md",
     "workflows/design-system.md",
     "workflows/prototype.md",
     "workflows/visual-planning.md",
@@ -75,6 +80,11 @@ REQUIRED = [
     "scripts/mpa.py",
     "scripts/design_audit.py",
     "scripts/design_quality.py",
+    "scripts/media_index.py",
+    "scripts/perceptual_preflight.py",
+    "scripts/source_map_check.py",
+    "scripts/workflow_state.py",
+    "scripts/capture_run.py",
     "scripts/install.py",
     "scripts/package.py",
     "scripts/pptx_lint.py",
@@ -183,7 +193,16 @@ def main():
                 text=True,
             )
             skill = target / "medical-presentation-architect"
-            for rel in ("SKILL.md", "README.md", "LICENSE", "NOTICE", "COMMERCIAL-LICENSING.md", "scripts/mpa.py", "ui/index.html"):
+            for rel in (
+                "SKILL.md",
+                "README.md",
+                "LICENSE",
+                "NOTICE",
+                "COMMERCIAL-LICENSING.md",
+                "scripts/mpa.py",
+                "docs/usage.md",
+                "ui/index.html",
+            ):
                 if not (skill / rel).is_file():
                     errors.append(f"installer smoke test did not place {rel}")
             subprocess.run(
@@ -230,6 +249,8 @@ def main():
                     "COMMERCIAL-LICENSING.md",
                     "schemas/design-system.schema.json",
                     "workflows/prototype.md",
+                    "docs/usage.md",
+                    "docs/release.md",
                 ):
                     generated = f"{prefix}/skills/medical-presentation-architect/{rel}"
                     if generated not in names:

@@ -8,4 +8,8 @@
 
 构建器必须执行 `slide-plan.layout`、页面 role 与 visual-plan 的 composition/style。cover、workflow swimlane、clinical screenshot、safety、printable assessment 使用专用 composer。图片保持比例并执行 fit/crop；设备对照按对象尺度统一。
 
+流程泳道由可用宽度统一计算节点宽度与 gap，connector 先绘制并终止在节点边界，再绘制节点；不得从节点中心连线或靠手填坐标累积。观众页脚使用作者—年份短引文，内部 `SRC*` 仅写 notes/ledger。
+
 PPT notes 先写简洁 delivery notes，再写来源摘要；完整 claim/source 审计保留在 ledger，避免重复堆入讲稿。不得直接创建 final。
+
+build 完成后可并行运行 PPTX lint、`source-map-check`、`perceptual-preflight`、notes 完整性和隐私/授权 ledger 检查；各分支分别写 checkpoint。

@@ -24,6 +24,11 @@ from design_quality import (
     split_speaker_and_evidence_notes,
 )
 from design_audit import audit_pptx_design
+from media_index import extract_selected, index_pptx, prepare_review as prepare_media_review
+from perceptual_preflight import analyze_presentation
+from source_map_check import check_presentation as check_source_map
+from source_map_check import readable_citations
+from workflow_state import PHASES, STATUSES, record_stage, resume_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -81,6 +86,41 @@ def sha_file(path):
         for block in iter(lambda: f.read(1024 * 1024), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def flow_node_lanes(nodes):
+    lanes = []
+    for node in sorted(nodes, key=lambda value: (value.get("y", 0), value.get("x", 0))):
+        lane = next((candidate for candidate in lanes if abs(candidate[0] - node.get("y", 0)) <= 0.16), None)
+        if lane:
+            lane[1].append(node)
+            lane[0] = sum(value.get("y", 0) for value in lane[1]) / len(lane[1])
+        else:
+            lanes.append([node.get("y", 0), [node]])
+    for _, lane_nodes in lanes:
+        lane_nodes.sort(key=lambda value: value.get("x", 0))
+    return lanes
+
+
+def flow_rectangles(element, x, y, width, height, unit=1.0):
+    """Lay out each process lane from available width, avoiding coordinate drift."""
+    lanes = flow_node_lanes(element.get("nodes", []))
+    node_height = min(1.05 * unit, height / max(len(lanes), 1) * 0.62)
+    rects = {}
+    for lane_y, lane_nodes in lanes:
+        count = len(lane_nodes)
+        gap = min(0.28 * unit, max(0.12 * unit, width * 0.025)) if count > 1 else 0
+        node_width = (width - gap * (count - 1)) / count
+        if node_width < 0.72 * unit:
+            gap = 0.08 * unit
+            node_width = (width - gap * (count - 1)) / count
+        total = node_width * count + gap * (count - 1)
+        lane_left = x + (width - total) / 2
+        node_y = y + lane_y * (height - node_height)
+        for column, node in enumerate(lane_nodes):
+            node_x = lane_left + column * (node_width + gap)
+            rects[node["id"]] = (node_x, node_y, node_width, node_height)
+    return rects
 
 
 def write_json(path, data):
@@ -591,18 +631,7 @@ def cross_errors(project):
             ids = [n.get("id") for n in nodes]
             if len(ids) != len(set(ids)):
                 errors.append(f"visual {e['id']} has duplicate node IDs")
-            rows = (len(nodes) + min(4, len(nodes)) - 1) // min(4, len(nodes)) if nodes else 1
-            cols = min(4, len(nodes)) if nodes else 1
-            node_w = e.get("w", 0) / cols * 0.62
-            node_h = min(0.76, e.get("h", 0) / rows * 0.62)
-            rects = {}
-            for node in nodes:
-                rects[node["id"]] = (
-                    e.get("x", 0) + node.get("x", 0) * (e.get("w", 0) - node_w),
-                    e.get("y", 0) + node.get("y", 0) * (e.get("h", 0) - node_h),
-                    node_w,
-                    node_h,
-                )
+            rects = flow_rectangles(e, e.get("x", 0), e.get("y", 0), e.get("w", 0), e.get("h", 0))
             for i, node_id in enumerate(ids):
                 a = rects[node_id]
                 for other_id in ids[i + 1 :]:
@@ -616,6 +645,12 @@ def cross_errors(project):
                     errors.append(f"visual {e['id']} edge references an unknown node")
                 elif edge.get("from") == edge.get("to"):
                     errors.append(f"visual {e['id']} edge loops to the same node")
+            if e.get("type") in ("flow", "timeline"):
+                edge_pairs = {(edge.get("from"), edge.get("to")) for edge in e.get("edges", [])}
+                for _, lane_nodes in flow_node_lanes(nodes):
+                    for left, right in zip(lane_nodes, lane_nodes[1:]):
+                        if (left["id"], right["id"]) not in edge_pairs and (right["id"], left["id"]) not in edge_pairs:
+                            errors.append(f"visual {e['id']} lacks connector for adjacent nodes {left['id']}/{right['id']}")
     for a in assets:
         p = (project / a["path"]).resolve()
         if project.resolve() not in p.parents:
@@ -725,6 +760,101 @@ def design_preflight(project):
     return report
 
 
+def source_map_preflight(project, pptx_path=None):
+    pptx_path = Path(pptx_path) if pptx_path else project / "build/draft.pptx"
+    if not pptx_path.is_absolute():
+        pptx_path = project / pptx_path
+    pptx_path = pptx_path.resolve()
+    if not pptx_path.is_file():
+        raise FileNotFoundError(f"PPTX not found: {pptx_path}")
+    sources = read_json(project / "sources.json") if (project / "sources.json").is_file() else []
+    report = check_source_map(pptx_path, sources)
+    report["generated_at"] = now()
+    report["pptx_sha256"] = sha_file(pptx_path)
+    write_json(project / "qa/source_map_check.json", report)
+    return report
+
+
+def perceptual_preflight(project, pptx_path=None):
+    pptx_path = Path(pptx_path) if pptx_path else project / "build/draft.pptx"
+    if not pptx_path.is_absolute():
+        pptx_path = project / pptx_path
+    pptx_path = pptx_path.resolve()
+    if not pptx_path.is_file():
+        raise FileNotFoundError(f"PPTX not found: {pptx_path}")
+    rendered_dir = None
+    render_manifest = project / "render/render.json"
+    if render_manifest.is_file():
+        render = read_json(render_manifest)
+        candidate_dir = project / "render/pages"
+        if render.get("pptx_sha256") == sha_file(pptx_path) and candidate_dir.is_dir():
+            rendered_dir = candidate_dir
+    report = analyze_presentation(pptx_path, rendered_dir)
+    report["generated_at"] = now()
+    report["pptx_sha256"] = sha_file(pptx_path)
+    write_json(project / "qa/perceptual_preflight.json", report)
+    return report
+
+
+def prepare_revision(project, findings_path):
+    findings = read_json(findings_path)
+    if not isinstance(findings, list) or not findings:
+        raise ValueError("findings must be a non-empty JSON array")
+    required = {"slide_id", "issue", "evidence", "requested_change", "severity"}
+    missing = [f"finding {index + 1}: {sorted(required - set(item))}" for index, item in enumerate(findings) if not required <= set(item)]
+    if missing:
+        raise ValueError("invalid findings; missing required fields: " + "; ".join(missing))
+    plan = read_json(project / "slide-plan.json")
+    valid_ids = {slide["id"] for slide in plan["slides"]}
+    target_ids = list(dict.fromkeys(str(item["slide_id"]) for item in findings))
+    unknown = [slide_id for slide_id in target_ids if slide_id not in valid_ids]
+    if unknown:
+        raise ValueError("findings reference unknown slide IDs: " + ", ".join(unknown))
+    revision_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    revision_dir = project / "qa/revisions" / revision_id
+    before_dir = revision_dir / "before"
+    before_dir.mkdir(parents=True, exist_ok=True)
+    render_manifest = read_json(project / "render/render.json") if (project / "render/render.json").is_file() else {"pages": []}
+    plan_order = {slide["id"]: index for index, slide in enumerate(plan["slides"], 1)}
+    copied = []
+    for slide_id in target_ids:
+        number = plan_order[slide_id]
+        page = next((project / page["path"] for page in render_manifest.get("pages", []) if page.get("slide_id") == slide_id), None)
+        if page is None:
+            candidates = sorted((project / "render/pages").glob(f"*{number:03d}.png")) if (project / "render/pages").is_dir() else []
+            page = candidates[0] if candidates else None
+        if page is not None and page.is_file():
+            destination = before_dir / page.name
+            shutil.copy2(page, destination)
+            copied.append(destination.relative_to(project).as_posix())
+    review_path = project / "review.json"
+    if review_path.is_file():
+        review = read_json(review_path)
+        for row in review.get("slides", []):
+            if str(row.get("slide_id")) in target_ids:
+                row["checks"] = {key: False for key in ("visual", "medical", "citations", "privacy", "notes")}
+                row["findings"] = "Targeted revision pending"
+        for branch in review.get("reviews", {}).values():
+            branch.update(status="pending", reviewed_at="")
+        review["fingerprint"] = "invalidated-by-targeted-revision"
+        write_json(review_path, review)
+    manifest = {
+        "format": "mpa-targeted-revision-v1",
+        "revision_id": revision_id,
+        "created_at": now(),
+        "status": "changes_pending",
+        "target_slides": target_ids,
+        "findings": findings,
+        "before": copied,
+        "before_pptx_sha256": sha_file(project / "build/draft.pptx") if (project / "build/draft.pptx").is_file() else None,
+        "required_followup": ["rebuild", "rerender", "perceptual-preflight", "source-map-check", "targeted visual review", "contact-sheet review"],
+    }
+    write_json(revision_dir / "revision.json", manifest)
+    for phase in ("build", "render", "perceptual_structure", "source_map", "visual_review", "contact_sheet_review", "qa"):
+        record_stage(project, phase, "invalidated")
+    return manifest
+
+
 def publication_gate_errors(project):
     system_path = project / "design-system.json"
     if not system_path.exists():
@@ -782,6 +912,23 @@ def machine_report(project):
     draft = project / "build/draft.pptx"
     if not draft.exists():
         errors.append("draft PPTX not built")
+    else:
+        try:
+            structural_reports = (
+                ("source-map", source_map_preflight(project, draft)),
+                ("perceptual", perceptual_preflight(project, draft)),
+            )
+            for prefix, structural_report in structural_reports:
+                for issue in structural_report.get("issues", []):
+                    label = f"{prefix} {issue['code']}"
+                    location = f" slide {issue['slide_id']}" if issue.get("slide_id") is not None else ""
+                    message = f"{label}{location}: {issue['evidence']}"
+                    if issue.get("severity") == "error":
+                        errors.append(message)
+                    else:
+                        warnings.append({"id": f"{prefix}:{issue['code']}:{issue.get('slide_id')}", "message": message})
+        except Exception as exc:
+            errors.append(f"PPTX structural preflight failed: {exc}")
     if not render_path.exists():
         errors.append("render manifest missing; render every slide before review")
     else:
@@ -1262,26 +1409,30 @@ def build_pptx(project, slide_ids=None, output_path=None):
                 chart.value_axis.tick_labels.font.size = Pt(10)
             elif typ in ("flow", "timeline", "decision"):
                 nodes, edges = e["nodes"], e.get("edges", [])
-                n = len(nodes)
-                cols = min(4, n)
-                rows = (n + cols - 1) // cols
-                nw = w / cols * 0.70
-                nh = min(Inches(1.05), h / max(rows, 1) * 0.62)
-                rects = {}
-                for node in nodes:
-                    nx = x + (node["x"] * (w - nw))
-                    ny = y + (node["y"] * (h - nh))
-                    rects[node["id"]] = (int(nx), int(ny), int(nw), int(nh))
+                rects = {
+                    node_id: tuple(int(value) for value in rect)
+                    for node_id, rect in flow_rectangles(e, x, y, w, h, unit=Inches(1)).items()
+                }
                 # Draw connectors first so they sit behind node shapes and cannot cross labels.
                 for edge in edges:
                     a = rects[edge["from"]]
                     b = rects[edge["to"]]
+                    acx, acy = a[0] + a[2] // 2, a[1] + a[3] // 2
+                    bcx, bcy = b[0] + b[2] // 2, b[1] + b[3] // 2
+                    if abs(bcx - acx) >= abs(bcy - acy):
+                        start_x = a[0] + a[2] if bcx >= acx else a[0]
+                        end_x = b[0] if bcx >= acx else b[0] + b[2]
+                        start_y, end_y = acy, bcy
+                    else:
+                        start_x, end_x = acx, bcx
+                        start_y = a[1] + a[3] if bcy >= acy else a[1]
+                        end_y = b[1] if bcy >= acy else b[1] + b[3]
                     connector = slide.shapes.add_connector(
                         MSO_CONNECTOR.STRAIGHT,
-                        a[0] + a[2] // 2,
-                        a[1] + a[3] // 2,
-                        b[0] + b[2] // 2,
-                        b[1] + b[3] // 2,
+                        start_x,
+                        start_y,
+                        end_x,
+                        end_y,
                     )
                     connector.line.color.rgb = palette["muted"]
                     connector.line.width = Pt(1.5)
@@ -1325,7 +1476,7 @@ def build_pptx(project, slide_ids=None, output_path=None):
                         paragraph.alignment = PP_ALIGN.CENTER
             else:
                 raise ValueError(f"unsupported visual type {typ}")
-        # Concise source IDs remain visible. Full evidence lives in the evidence-notes block.
+        # Audience-facing citations are readable; internal IDs remain in the evidence-notes block.
         source_ids = sorted(
             {sid for cid in item.get("claim_ids", []) for sid in claims.get(cid, {}).get("source_ids", [])}
         )
@@ -1333,7 +1484,7 @@ def build_pptx(project, slide_ids=None, output_path=None):
             citation = slide.shapes.add_textbox(
                 Inches(0.58), Inches(7.13), Inches(12.15), Inches(0.22)
             )
-            citation.text = "Sources: " + "  ".join(f"[{sid}]" for sid in source_ids)
+            citation.text = "来源：" + readable_citations(source_ids, sources)
             citation.text_frame.paragraphs[0].font.name = font_name
             citation.text_frame.paragraphs[0].font.size = Pt(9)
             citation.text_frame.paragraphs[0].font.color.rgb = palette["muted"]
@@ -1352,6 +1503,8 @@ def build_pptx(project, slide_ids=None, output_path=None):
     out.with_name("notes.md").write_text("\n".join(notes_md).rstrip() + "\n", encoding="utf-8")
     if not slide_ids:
         design_preflight(project)
+        source_map_preflight(project, out)
+        perceptual_preflight(project, out)
     # Open it again to detect a corrupt/unreadable package before offering the draft.
     Presentation(str(out))
     return out
@@ -1731,6 +1884,32 @@ def main():
     p.add_argument("source", type=Path)
     p = sub.add_parser("design-preflight")
     p.add_argument("project", type=Path)
+    p = sub.add_parser("media-index")
+    p.add_argument("project", type=Path)
+    p.add_argument("source", type=Path)
+    p.add_argument("--batch-size", type=int, default=4)
+    p = sub.add_parser("media-extract")
+    p.add_argument("project", type=Path)
+    p.add_argument("--select", action="append", required=True)
+    p = sub.add_parser("review-media")
+    p.add_argument("project", type=Path)
+    p.add_argument("--batch-size", type=int, default=4)
+    p = sub.add_parser("source-map-check")
+    p.add_argument("project", type=Path)
+    p.add_argument("--pptx", type=Path)
+    p = sub.add_parser("perceptual-preflight")
+    p.add_argument("project", type=Path)
+    p.add_argument("--pptx", type=Path)
+    p = sub.add_parser("stage")
+    p.add_argument("project", type=Path)
+    p.add_argument("--phase", choices=PHASES, required=True)
+    p.add_argument("--status", choices=STATUSES, required=True)
+    p.add_argument("--artifact", action="append", type=Path, default=[])
+    p = sub.add_parser("resume")
+    p.add_argument("project", type=Path)
+    p = sub.add_parser("revise")
+    p.add_argument("project", type=Path)
+    p.add_argument("--findings", type=Path, required=True)
     p = sub.add_parser("normalize-design")
     p.add_argument("project", type=Path)
     p = sub.add_parser("prototype")
@@ -1874,6 +2053,40 @@ def main():
             report = design_preflight(project)
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["passed"] else 2
+        if args.command == "media-index":
+            report = index_pptx(args.source, project / "intake", args.batch_size)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "media-extract":
+            index = read_json(project / "intake/media_index.json")
+            report = extract_selected(index, project / "assets/extracted", args.select)
+            write_json(project / "intake/media_extract.json", report)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "review-media":
+            index = read_json(project / "intake/media_index.json")
+            report = prepare_media_review(index, project / "intake/media_review.json", args.batch_size)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "source-map-check":
+            report = source_map_preflight(project, args.pptx)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0 if report["passed"] else 2
+        if args.command == "perceptual-preflight":
+            report = perceptual_preflight(project, args.pptx)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0 if report["passed"] else 2
+        if args.command == "stage":
+            report = record_stage(project, args.phase, args.status, args.artifact)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "resume":
+            print(json.dumps(resume_plan(project), ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "revise":
+            report = prepare_revision(project, args.findings)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
         if args.command == "normalize-design":
             plan = read_json(project / "slide-plan.json")
             visual_path = project / "visual-plan.json"
